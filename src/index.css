@@ -1,0 +1,660 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Moja Brand Colors ──
+   Blue:   #355574
+   Orange: #e66d38
+   Aqua:   #6dccc2
+   Yellow: #efd35c
+   Pink:   #df76b6
+*/
+
+.moja-app {
+  font-family: 'Quicksand', sans-serif;
+  background: #ffffff;
+  min-height: 100vh;
+}
+
+.moja-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.moja-header {
+  background: #355574;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.moja-header-moment {
+  background: #355574;
+  border-bottom: 3px solid #efd35c;
+}
+.moja-logo-container {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.moja-logo-img {
+  height: 44px;
+  width: auto;
+  display: block;
+}
+.moja-header-title {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 18px;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+.moja-header-sub {
+  font-size: 12px;
+  color: #6dccc2;
+  margin-top: 3px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.moja-header-moment .moja-header-sub {
+  color: #efd35c;
+}
+.moja-download-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: #ffffff;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  letter-spacing: 0.3px;
+}
+.moja-download-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Content wrapper ── */
+.moja-content {
+  flex: 1;
+  padding: 32px;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── Welcome screen ── */
+.moja-welcome-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  background: #ffffff;
+}
+.moja-welcome-inner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  width: 100%;
+}
+
+/* Brand accent blobs */
+.moja-blob {
+  position: absolute;
+  border-radius: 60% 40% 70% 30% / 50% 60% 40% 70%;
+  opacity: 0.35;
+  pointer-events: none;
+}
+.moja-blob-aqua {
+  background: #6dccc2;
+  width: 340px;
+  height: 280px;
+  top: -60px;
+  right: -80px;
+  border-radius: 63% 37% 54% 46% / 55% 48% 52% 45%;
+}
+.moja-blob-pink {
+  background: #df76b6;
+  width: 260px;
+  height: 220px;
+  bottom: -40px;
+  left: -60px;
+  border-radius: 45% 55% 40% 60% / 60% 44% 56% 40%;
+}
+.moja-blob-yellow {
+  background: #efd35c;
+  width: 200px;
+  height: 180px;
+  bottom: 40px;
+  right: 80px;
+  border-radius: 70% 30% 60% 40% / 40% 70% 30% 60%;
+}
+
+.moja-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #e66d38;
+  margin-bottom: 14px;
+}
+.moja-welcome-title {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 34px;
+  color: #355574;
+  font-weight: 700;
+  margin-bottom: 14px;
+  line-height: 1.25;
+}
+.moja-welcome-sub {
+  font-size: 15px;
+  color: #6b8294;
+  line-height: 1.75;
+  max-width: 420px;
+  margin: 0 auto 36px;
+}
+.moja-name-wrap {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+.moja-name-input {
+  width: 100%;
+  padding: 16px 20px;
+  border: 2px solid #c8e6e3;
+  border-radius: 14px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  background: #fff;
+  color: #2d2d2d;
+  text-align: center;
+  margin-bottom: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  display: block;
+}
+.moja-name-input:focus {
+  outline: none;
+  border-color: #6dccc2;
+  box-shadow: 0 0 0 3px rgba(109, 204, 194, 0.2);
+}
+.moja-name-input::placeholder {
+  color: #b0bec5;
+}
+
+/* ── Buttons ── */
+.moja-btn-primary {
+  width: 100%;
+  padding: 16px;
+  background: #355574;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  letter-spacing: 0.3px;
+}
+.moja-btn-primary:hover:not(:disabled) {
+  background: #274260;
+  transform: translateY(-1px);
+}
+.moja-btn-primary:disabled {
+  background: #a8c4d0;
+  cursor: not-allowed;
+  transform: none;
+}
+.moja-btn-secondary {
+  padding: 13px 24px;
+  background: transparent;
+  color: #355574;
+  border: 2px solid #c8e6e3;
+  border-radius: 10px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.moja-btn-secondary:hover {
+  background: #e8f7f5;
+  border-color: #6dccc2;
+  color: #355574;
+}
+.moja-btn-orange {
+  background: #e66d38 !important;
+  color: #fff !important;
+}
+.moja-btn-orange:hover:not(:disabled) {
+  background: #cc5b28 !important;
+}
+
+/* ── Type selection ── */
+.moja-greeting {
+  font-size: 16px;
+  color: #6b8294;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+.moja-accent {
+  color: #355574;
+  font-weight: 700;
+}
+.moja-type-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.moja-type-card {
+  background: #fff;
+  border: 2px solid #e8f0ee;
+  border-radius: 16px;
+  padding: 20px 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.moja-type-card:hover {
+  border-color: #6dccc2;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(53, 85, 116, 0.1);
+}
+.moja-type-card.selected {
+  border-color: #355574;
+  background: #f0f6fb;
+  box-shadow: 0 4px 16px rgba(53, 85, 116, 0.12);
+}
+.moja-type-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.moja-type-card-text h3 {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #355574;
+  margin-bottom: 4px;
+}
+.moja-type-card-text p {
+  font-size: 13px;
+  color: #7a8e97;
+  line-height: 1.55;
+}
+
+/* ── Form fields ── */
+.moja-field-group {
+  margin-bottom: 28px;
+}
+.moja-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #355574;
+  margin-bottom: 10px;
+}
+.moja-hint {
+  font-size: 11px;
+  color: #a0b0b8;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+.moja-required {
+  color: #e66d38;
+}
+.moja-input {
+  width: 100%;
+  padding: 13px 16px;
+  border: 2px solid #e0ece9;
+  border-radius: 10px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  background: #fff;
+  color: #2d2d2d;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  display: block;
+}
+.moja-input:focus {
+  outline: none;
+  border-color: #6dccc2;
+  box-shadow: 0 0 0 3px rgba(109, 204, 194, 0.15);
+}
+.moja-textarea {
+  width: 100%;
+  padding: 13px 16px;
+  border: 2px solid #e0ece9;
+  border-radius: 10px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  background: #fff;
+  color: #2d2d2d;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.6;
+  display: block;
+}
+.moja-textarea:focus {
+  outline: none;
+  border-color: #6dccc2;
+  box-shadow: 0 0 0 3px rgba(109, 204, 194, 0.15);
+}
+
+/* ── Chips ── */
+.moja-chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.moja-chip {
+  padding: 9px 18px;
+  border: 2px solid #e0ece9;
+  border-radius: 30px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  background: #fff;
+  color: #4a6b7a;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.moja-chip:hover {
+  border-color: #6dccc2;
+  color: #355574;
+  background: #f0faf9;
+}
+.moja-chip.selected {
+  background: #355574;
+  color: #ffffff;
+  border-color: #355574;
+}
+
+/* ── Section heads ── */
+.moja-section-head {
+  font-family: 'Quicksand', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #355574;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 2.5px solid #e66d38;
+}
+
+/* ── Two-col layout ── */
+.moja-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* ── Photo upload ── */
+.moja-upload-area {
+  border: 2px dashed #6dccc2;
+  border-radius: 14px;
+  background: #f7fdfc;
+  padding: 24px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.moja-upload-area:hover {
+  border-color: #3aa89e;
+  background: #eef9f8;
+}
+.moja-upload-area > p {
+  font-size: 13px;
+  color: #7a9ea0;
+  font-weight: 600;
+}
+.moja-file-name {
+  font-size: 12px;
+  color: #355574;
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+/* ── Urgency ── */
+.moja-urgency-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.moja-urgency-card {
+  background: #fff;
+  border: 2px solid #e0ece9;
+  border-radius: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: all 0.15s;
+}
+.moja-urgency-card:hover {
+  border-color: #6dccc2;
+  background: #f7fdfc;
+}
+.moja-urgency-card.sel-red {
+  border-color: #c0392b;
+  background: #fdf2f1;
+}
+.moja-urgency-card.sel-yellow {
+  border-color: #c8a000;
+  background: #fefbed;
+}
+.moja-urgency-card.sel-green {
+  border-color: #27ae60;
+  background: #f0faf4;
+}
+.moja-u-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.u-red { background: #c0392b; }
+.u-yellow { background: #e0a800; }
+.u-green { background: #27ae60; }
+.moja-u-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2d2d2d;
+}
+.moja-u-desc {
+  font-size: 12px;
+  color: #8a9fac;
+  margin-top: 2px;
+}
+
+/* ── Follow-up ── */
+.moja-followup-grid {
+  display: flex;
+  gap: 10px;
+}
+.moja-followup-btn {
+  flex: 1;
+  padding: 13px 16px;
+  text-align: center;
+  border: 2px solid #e0ece9;
+  border-radius: 10px;
+  background: #fff;
+  color: #4a6b7a;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.moja-followup-btn:hover {
+  border-color: #6dccc2;
+  background: #f0faf9;
+}
+.moja-followup-btn.selected {
+  background: #355574;
+  color: #ffffff;
+  border-color: #355574;
+}
+
+/* ── Error states ── */
+.moja-inline-error {
+  font-size: 12px;
+  color: #c0392b;
+  margin-top: 7px;
+  font-weight: 600;
+}
+.moja-submit-error {
+  font-size: 13px;
+  color: #c0392b;
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+/* ── Button row ── */
+.moja-btn-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  align-items: center;
+}
+.moja-btn-row .moja-btn-primary {
+  flex: 1;
+}
+
+/* ── Moment screen ── */
+.moja-privacy-note {
+  font-size: 13px;
+  color: #9ab0b8;
+  font-style: italic;
+  margin-bottom: 28px;
+  line-height: 1.6;
+  background: #f7fdfc;
+  border-left: 3px solid #6dccc2;
+  padding: 10px 14px;
+  border-radius: 0 8px 8px 0;
+}
+
+/* ── Thank you ── */
+.moja-thanks-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 32px;
+  background: #ffffff;
+}
+.moja-thanks-wrap::before {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 350px;
+  background: #6dccc2;
+  opacity: 0.15;
+  border-radius: 60% 40% 70% 30% / 50% 60% 40% 70%;
+  top: -80px;
+  right: -100px;
+  pointer-events: none;
+}
+.moja-thanks-wrap::after {
+  content: '';
+  position: absolute;
+  width: 280px;
+  height: 240px;
+  background: #e66d38;
+  opacity: 0.1;
+  border-radius: 45% 55% 40% 60% / 60% 44% 56% 40%;
+  bottom: -60px;
+  left: -60px;
+  pointer-events: none;
+}
+.moja-thanks-circle {
+  position: relative;
+  z-index: 1;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: #355574;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  box-shadow: 0 8px 24px rgba(53, 85, 116, 0.28);
+}
+.moja-thanks-wrap h2 {
+  position: relative;
+  z-index: 1;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: #355574;
+  margin-bottom: 10px;
+}
+.moja-thanks-wrap p {
+  position: relative;
+  z-index: 1;
+  font-size: 15px;
+  color: #6b8294;
+  line-height: 1.7;
+  max-width: 360px;
+  margin: 0 auto;
+}
+.moja-countdown {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  color: #a0b8c4;
+  margin-top: 28px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .moja-content { padding: 20px 16px; }
+  .moja-two-col { grid-template-columns: 1fr; }
+  .moja-welcome-title { font-size: 27px; }
+  .moja-header { padding: 14px 16px; }
+  .moja-logo-img { height: 36px; }
+  .moja-header-title { font-size: 16px; }
+  .moja-blob-aqua { width: 200px; height: 180px; }
+  .moja-blob-pink { width: 160px; height: 140px; }
+  .moja-blob-yellow { width: 130px; height: 110px; }
+}
