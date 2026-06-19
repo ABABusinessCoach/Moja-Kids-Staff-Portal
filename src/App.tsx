@@ -6,8 +6,8 @@ const SVC = 'service_y6hfvxk';
 const TPL = 'template_qktlb8f';
 const ADMIN = 'hello@mojakids.com';
 
-type Screen = 'name' | 'type' | 'headsup' | 'moment' | 'thanks';
-type SubmissionType = 'headsup' | 'moment' | 'both' | '';
+type Screen = 'name' | 'type' | 'headsup' | 'moment' | 'tech' | 'thanks';
+type SubmissionType = 'headsup' | 'moment' | 'tech' | '';
 type Urgency = 'red' | 'yellow' | 'green' | '';
 type FollowUp = 'yes' | 'no' | '';
 
@@ -34,6 +34,18 @@ interface MMState {
   client: string;
   staff: string;
   text: string;
+}
+
+interface TechState {
+  issueType: string;
+  system: string;
+  tryingTo: string;
+  whatHappened: string;
+  stepsTried: string;
+  urgency: Urgency;
+  followup: FollowUp;
+  photoB64: string;
+  photoName: string;
 }
 
 const STANDALONE_HTML = `<!DOCTYPE html>
@@ -267,6 +279,16 @@ export default function App() {
   const [mmSubmitError, setMmSubmitError] = useState('');
   const [mmSubmitting, setMmSubmitting] = useState(false);
 
+  const [tech, setTech] = useState<TechState>({
+    issueType: '', system: '', tryingTo: '', whatHappened: '',
+    stepsTried: '', urgency: '', followup: '', photoB64: '', photoName: '',
+  });
+  const [techErrors, setTechErrors] = useState({ issueType: false, whatHappened: false, urgency: false });
+  const [techSubmitError, setTechSubmitError] = useState('');
+  const [techSubmitting, setTechSubmitting] = useState(false);
+  const techFileInputRef = useRef<HTMLInputElement>(null);
+  const [techPhotoPreview, setTechPhotoPreview] = useState('');
+
   const [thanksTitle, setThanksTitle] = useState('');
   const [thanksMsg, setThanksMsg] = useState('');
   const [countdown, setCountdown] = useState(8);
@@ -307,6 +329,10 @@ export default function App() {
     setMm({ client: '', staff: '', text: '' });
     setMmTextError(false);
     setMmSubmitError('');
+    setTech({ issueType: '', system: '', tryingTo: '', whatHappened: '', stepsTried: '', urgency: '', followup: '', photoB64: '', photoName: '' });
+    setTechErrors({ issueType: false, whatHappened: false, urgency: false });
+    setTechSubmitError('');
+    setTechPhotoPreview('');
     show('name');
   }
 
@@ -318,7 +344,7 @@ export default function App() {
 
   function selectType(t: SubmissionType) {
     setSubmissionType(t);
-    setTimeout(() => show(t === 'moment' ? 'moment' : 'headsup'), 160);
+    setTimeout(() => show(t === 'moment' ? 'moment' : t === 'tech' ? 'tech' : 'headsup'), 160);
   }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -362,8 +388,7 @@ export default function App() {
     } finally { setHuSubmitting(false); }
   }
 
-  async function submitMoment() {
-    if (!mm.text.trim()) { setMmTextError(true); return; }
+  async function submitMoment() {    if (!mm.text.trim()) { setMmTextError(true); return; }
     setMmTextError(false);
     setMmSubmitting(true);
     setMmSubmitError('');
@@ -382,6 +407,52 @@ export default function App() {
     } catch (err: unknown) {
       setMmSubmitError('Send failed: ' + ((err as { text?: string })?.text || String(err)));
     } finally { setMmSubmitting(false); }
+  }
+
+  function handleTechPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      const result = ev.target?.result as string;
+      setTechPhotoPreview(result);
+      setTech(t => ({ ...t, photoB64: result, photoName: f.name }));
+    };
+    r.readAsDataURL(f);
+  }
+
+  async function submitTech() {
+    const errors = { issueType: !tech.issueType, whatHappened: !tech.whatHappened.trim(), urgency: !tech.urgency };
+    setTechErrors(errors);
+    if (Object.values(errors).some(Boolean)) return;
+    setTechSubmitting(true);
+    setTechSubmitError('');
+    const p = {
+      to_email: ADMIN,
+      submission_type: 'Tech Issue',
+      staff_name: staffName,
+      category: tech.issueType,
+      impact: tech.system || '—',
+      involved_staff: staffName,
+      involved_client: '—',
+      headsup_text: `TRYING TO DO: ${tech.tryingTo || '—'}\n\nWHAT HAPPENED: ${tech.whatHappened}\n\nSTEPS TRIED: ${tech.stepsTried || '—'}`,
+      improvement: '—',
+      urgency: uLabel(tech.urgency),
+      followup: tech.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed',
+      moment_client: '—',
+      moment_staff: '—',
+      moment_text: '—',
+      photo_name: tech.photoName || 'No screenshot',
+      photo_data: tech.photoB64 || '',
+    };
+    try {
+      await emailjs.send(SVC, TPL, p);
+      setThanksTitle('Tech Issue reported!');
+      setThanksMsg('Sent to hello@mojakids.com. The team will look into it right away.');
+      show('thanks');
+    } catch (err: unknown) {
+      setTechSubmitError('Send failed: ' + ((err as { text?: string })?.text || String(err)));
+    } finally { setTechSubmitting(false); }
   }
 
   async function sendSOS() {
@@ -473,22 +544,49 @@ export default function App() {
           <div className="moja-content" style={{ paddingTop: 36 }}>
             <p className="moja-greeting">Hi <span className="moja-accent">{staffName.split(' ')[0]}</span>, what would you like to share?</p>
             <div className="moja-type-grid">
-              {[
-                { id: 'headsup' as const, label: 'Heads Up', desc: 'Flag something that needs attention — a concern, challenge, or area for improvement.', bg: '#fce9df',
-                  icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e66d38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> },
-                { id: 'moment' as const, label: 'Moja Moment', desc: 'Celebrate a highlight, win, or something meaningful that happened today.', bg: '#fef7d6',
-                  icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c8a000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> },
-                { id: 'both' as const, label: 'Both', desc: 'I have a Heads Up and a Moja Moment to share.', bg: '#ddf4f2',
-                  icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3aa89e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> },
-              ].map(({ id, label, desc, bg, icon }) => (
-                <div key={id} className={`moja-type-card${submissionType === id ? ' selected' : ''}`} onClick={() => selectType(id)}>
-                  <div className="moja-type-icon" style={{ background: bg }}>{icon}</div>
+              {/* 3-card top row */}
+              <div className="moja-type-row">
+                <div className={`moja-type-card moja-type-card-compact${submissionType === 'headsup' ? ' selected' : ''}`} onClick={() => selectType('headsup')}>
+                  <div className="moja-type-icon" style={{ background: '#fce9df' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e66d38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </div>
                   <div className="moja-type-card-text">
-                    <h3>{label}</h3>
-                    <p>{desc}</p>
+                    <h3>Heads Up</h3>
+                    <p>Flag a concern or area for improvement.</p>
                   </div>
                 </div>
-              ))}
+                <div className={`moja-type-card moja-type-card-compact${submissionType === 'moment' ? ' selected' : ''}`} onClick={() => selectType('moment')}>
+                  <div className="moja-type-icon" style={{ background: '#fef7d6' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c8a000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  </div>
+                  <div className="moja-type-card-text">
+                    <h3>Moja Moment</h3>
+                    <p>Celebrate a highlight or win.</p>
+                  </div>
+                </div>
+                <div className={`moja-type-card moja-type-card-compact moja-type-card-tech${submissionType === 'tech' ? ' selected' : ''}`} onClick={() => selectType('tech')}>
+                  <div className="moja-type-icon moja-tech-icon">
+                    <img src="/images/tech/image.png" alt="Tech" style={{ width: 22, height: 22, objectFit: 'contain' }} />
+                  </div>
+                  <div className="moja-type-card-text">
+                    <h3>Tech Issue</h3>
+                    <p>Report a tech or data problem.</p>
+                  </div>
+                </div>
+              </div>
+              {/* SOS full-width */}
+              <div className="moja-type-card moja-type-card-sos moja-type-card-sos-full" onClick={() => { setSosOpen(true); setSosSent(false); }}>
+                <div className="moja-type-icon" style={{ background: '#fde8e6' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c0392b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div className="moja-type-card-text">
+                  <h3 style={{ color: '#c0392b' }}>SOS — I Need Help</h3>
+                  <p>Send an urgent alert with your location. Admin will be notified immediately.</p>
+                </div>
+              </div>
             </div>
             <button className="moja-btn-secondary" onClick={() => show('name')}>Back</button>
           </div>
@@ -628,6 +726,97 @@ export default function App() {
               </button>
             </div>
             {mmSubmitError && <p className="moja-submit-error">{mmSubmitError}</p>}
+          </div>
+        </div>
+      )}
+
+      {screen === 'tech' && (
+        <div className="moja-screen">
+          <Header title="Tech Issue" subtitle="Report a tech or data problem" />
+          <div className="moja-content">
+
+            <div className="moja-field-group">
+              <div className="moja-section-head">Issue type <span className="moja-required">*</span></div>
+              <div className="moja-chip-wrap">
+                {['App / Software', 'Device / Hardware', 'Network / Internet', 'Data / Records', 'Printer / Equipment', 'Other'].map(t => (
+                  <div key={t} className={`moja-chip${tech.issueType === t ? ' selected' : ''}`}
+                    onClick={() => { setTech(s => ({ ...s, issueType: t })); setTechErrors(e => ({ ...e, issueType: false })); }}>{t}</div>
+                ))}
+              </div>
+              {techErrors.issueType && <p className="moja-inline-error">Please select an issue type.</p>}
+            </div>
+
+            <div className="moja-field-group">
+              <label className="moja-field-label">Which system or device? <span className="moja-hint">(optional)</span></label>
+              <input type="text" className="moja-input" placeholder="e.g. iPad, CATT database, printer in Room 2"
+                value={tech.system} onChange={e => setTech(s => ({ ...s, system: e.target.value }))} />
+            </div>
+
+            <div className="moja-field-group">
+              <label className="moja-field-label">What were you trying to do? <span className="moja-hint">(optional)</span></label>
+              <input type="text" className="moja-input" placeholder="e.g. Log in to the app, print a report, save a session note"
+                value={tech.tryingTo} onChange={e => setTech(s => ({ ...s, tryingTo: e.target.value }))} />
+            </div>
+
+            <div className="moja-field-group">
+              <label className="moja-field-label">What happened? <span className="moja-required">*</span></label>
+              <textarea className="moja-textarea" placeholder="Describe the problem in as much detail as possible..."
+                value={tech.whatHappened}
+                onChange={e => { setTech(s => ({ ...s, whatHappened: e.target.value })); if (e.target.value.trim()) setTechErrors(er => ({ ...er, whatHappened: false })); }} />
+              {techErrors.whatHappened && <p className="moja-inline-error">Please describe what happened.</p>}
+            </div>
+
+            <div className="moja-field-group">
+              <label className="moja-field-label">Steps already tried <span className="moja-hint">(optional)</span></label>
+              <textarea className="moja-textarea" style={{ minHeight: 80 }} placeholder="e.g. Restarted the device, cleared the browser cache..."
+                value={tech.stepsTried} onChange={e => setTech(s => ({ ...s, stepsTried: e.target.value }))} />
+            </div>
+
+            <div className="moja-field-group">
+              <label className="moja-field-label">Screenshot <span className="moja-hint">(optional)</span></label>
+              <div className="moja-upload-area" onClick={() => techFileInputRef.current?.click()}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6dccc2" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8 }}>
+                  <rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                </svg>
+                <p>Tap to attach a screenshot</p>
+                {techPhotoPreview && <img src={techPhotoPreview} alt="preview" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, marginTop: 10 }} />}
+                {tech.photoName && <p className="moja-file-name">{tech.photoName}</p>}
+              </div>
+              <input ref={techFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleTechPhoto} />
+            </div>
+
+            <div className="moja-field-group">
+              <div className="moja-section-head">Urgency <span className="moja-required">*</span></div>
+              <div className="moja-urgency-grid">
+                {URGENCY_OPTIONS.map(({ id, label, desc }) => (
+                  <div key={id} className={`moja-urgency-card${tech.urgency === id ? ` sel-${id}` : ''}`}
+                    onClick={() => { setTech(s => ({ ...s, urgency: id })); setTechErrors(e => ({ ...e, urgency: false })); }}>
+                    <div className={`moja-u-dot u-${id}`} />
+                    <div>
+                      <div className="moja-u-label">{label}</div>
+                      <div className="moja-u-desc">{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {techErrors.urgency && <p className="moja-inline-error">Please select an urgency level.</p>}
+            </div>
+
+            <div className="moja-field-group">
+              <label className="moja-field-label">Would you like follow-up?</label>
+              <div className="moja-followup-grid">
+                <div className={`moja-followup-btn${tech.followup === 'yes' ? ' selected' : ''}`} onClick={() => setTech(s => ({ ...s, followup: 'yes' }))}>Yes, please follow up</div>
+                <div className={`moja-followup-btn${tech.followup === 'no' ? ' selected' : ''}`} onClick={() => setTech(s => ({ ...s, followup: 'no' }))}>No follow-up needed</div>
+              </div>
+            </div>
+
+            <div className="moja-btn-row">
+              <button className="moja-btn-secondary" onClick={() => show('type')}>Back</button>
+              <button className="moja-btn-primary moja-btn-tech" disabled={techSubmitting} onClick={submitTech}>
+                {techSubmitting ? 'Sending...' : 'Submit Tech Issue'}
+              </button>
+            </div>
+            {techSubmitError && <p className="moja-submit-error">{techSubmitError}</p>}
           </div>
         </div>
       )}

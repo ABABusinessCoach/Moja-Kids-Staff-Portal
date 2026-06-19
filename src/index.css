@@ -248,6 +248,13 @@
 .moja-btn-orange:hover:not(:disabled) {
   background: #cc5b28 !important;
 }
+.moja-btn-tech {
+  background: #2d5d7b !important;
+  color: #fff !important;
+}
+.moja-btn-tech:hover:not(:disabled) {
+  background: #1e4560 !important;
+}
 
 /* ── Type selection ── */
 .moja-greeting {
@@ -265,6 +272,11 @@
   flex-direction: column;
   gap: 14px;
   margin-bottom: 28px;
+}
+.moja-type-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 .moja-type-card {
   background: #fff;
@@ -286,6 +298,22 @@
   border-color: #355574;
   background: #f0f6fb;
   box-shadow: 0 4px 16px rgba(53, 85, 116, 0.12);
+}
+.moja-type-card-compact {
+  padding: 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.moja-type-card-compact .moja-type-card-text h3 {
+  font-size: 14px;
+}
+.moja-type-card-compact .moja-type-card-text p {
+  font-size: 12px;
+}
+.moja-type-card-sos-full {
+  flex-direction: row;
+  align-items: center;
 }
 .moja-type-icon {
   width: 52px;
@@ -657,6 +685,25 @@
   .moja-blob-aqua { width: 200px; height: 180px; }
   .moja-blob-pink { width: 160px; height: 140px; }
   .moja-blob-yellow { width: 130px; height: 110px; }
+  .moja-type-row { grid-template-columns: 1fr; }
+}
+
+/* ── Type card variants ── */
+.moja-type-card-sos {
+  border-color: #f5cdc9;
+}
+.moja-type-card-sos:hover {
+  border-color: #c0392b !important;
+  box-shadow: 0 6px 20px rgba(192, 57, 43, 0.12) !important;
+}
+.moja-type-card-tech {
+  border-color: #d4e8f5;
+}
+.moja-type-card-tech:hover {
+  border-color: #355574 !important;
+}
+.moja-tech-icon {
+  background: #eaf4fb;
 }
 
 /* ── SOS Floating Button ── */
