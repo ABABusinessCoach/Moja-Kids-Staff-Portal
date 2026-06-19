@@ -658,3 +658,226 @@
   .moja-blob-pink { width: 160px; height: 140px; }
   .moja-blob-yellow { width: 130px; height: 110px; }
 }
+
+/* ── SOS Floating Button ── */
+.moja-sos-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px;
+  background: #c0392b;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(192, 57, 43, 0.5);
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  animation: sos-pulse 2.4s ease-in-out infinite;
+}
+.moja-sos-fab:hover {
+  background: #a93226;
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 8px 28px rgba(192, 57, 43, 0.55);
+  animation: none;
+}
+
+@keyframes sos-pulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(192, 57, 43, 0.5); }
+  50% { box-shadow: 0 4px 28px rgba(192, 57, 43, 0.75), 0 0 0 6px rgba(192, 57, 43, 0.12); }
+}
+
+/* ── SOS Overlay & Modal ── */
+.moja-sos-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 30, 45, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 16px;
+  animation: overlay-in 0.2s ease;
+}
+@media (min-width: 500px) {
+  .moja-sos-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+}
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.moja-sos-modal {
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 -4px 40px rgba(0, 0, 0, 0.2);
+  animation: modal-up 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+@media (min-width: 500px) {
+  .moja-sos-modal {
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    animation: modal-scale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+@keyframes modal-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes modal-scale {
+  from { transform: scale(0.92); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.moja-sos-modal-header {
+  background: #c0392b;
+  padding: 20px 20px 20px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #fff;
+}
+.moja-sos-header-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.moja-sos-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.moja-sos-modal-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 2px;
+  font-weight: 600;
+}
+.moja-sos-x {
+  margin-left: auto;
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.moja-sos-x:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.moja-sos-modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.moja-sos-field {
+  margin-bottom: 18px;
+}
+.moja-sos-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #c0392b;
+  margin-bottom: 8px;
+}
+.moja-input-error {
+  border-color: #c0392b !important;
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12) !important;
+}
+.moja-sos-send-btn {
+  width: 100%;
+  padding: 16px;
+  background: #c0392b;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: background 0.15s, transform 0.1s;
+}
+.moja-sos-send-btn:hover:not(:disabled) {
+  background: #a93226;
+  transform: translateY(-1px);
+}
+.moja-sos-send-btn:disabled {
+  background: #e8a09a;
+  cursor: not-allowed;
+}
+
+/* ── SOS sent confirmation ── */
+.moja-sos-sent {
+  padding: 40px 28px;
+  text-align: center;
+}
+.moja-sos-sent-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #27ae60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.3);
+}
+.moja-sos-sent h3 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #27ae60;
+  margin-bottom: 10px;
+}
+.moja-sos-sent p {
+  font-size: 15px;
+  color: #6b8294;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+.moja-sos-close-btn {
+  padding: 13px 32px;
+  background: #355574;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.moja-sos-close-btn:hover {
+  background: #274260;
+}

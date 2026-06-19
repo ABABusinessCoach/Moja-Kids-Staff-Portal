@@ -11,6 +11,12 @@ type SubmissionType = 'headsup' | 'moment' | 'both' | '';
 type Urgency = 'red' | 'yellow' | 'green' | '';
 type FollowUp = 'yes' | 'no' | '';
 
+interface SOSState {
+  name: string;
+  location: string;
+  note: string;
+}
+
 interface HUState {
   category: string;
   impact: string;
@@ -265,6 +271,13 @@ export default function App() {
   const [thanksMsg, setThanksMsg] = useState('');
   const [countdown, setCountdown] = useState(8);
 
+  const [sosOpen, setSosOpen] = useState(false);
+  const [sos, setSos] = useState<SOSState>({ name: '', location: '', note: '' });
+  const [sosLocationError, setSosLocationError] = useState(false);
+  const [sosSending, setSosSending] = useState(false);
+  const [sosSent, setSosSent] = useState(false);
+  const [sosSendError, setSosSendError] = useState('');
+
   const show = useCallback((s: Screen) => {
     setScreen(s);
     window.scrollTo(0, 0);
@@ -369,6 +382,48 @@ export default function App() {
     } catch (err: unknown) {
       setMmSubmitError('Send failed: ' + ((err as { text?: string })?.text || String(err)));
     } finally { setMmSubmitting(false); }
+  }
+
+  async function sendSOS() {
+    if (!sos.location.trim()) { setSosLocationError(true); return; }
+    setSosLocationError(false);
+    setSosSending(true);
+    setSosSendError('');
+    const senderName = sos.name.trim() || staffName.trim() || 'Unknown staff';
+    const p = {
+      to_email: ADMIN,
+      submission_type: 'SOS — URGENT HELP NEEDED',
+      staff_name: senderName,
+      category: 'EMERGENCY',
+      impact: 'Safety',
+      involved_staff: senderName,
+      involved_client: '—',
+      headsup_text: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`,
+      improvement: '—',
+      urgency: 'RED — IMMEDIATE HELP NEEDED',
+      followup: 'Yes — follow up immediately',
+      moment_client: '—',
+      moment_staff: '—',
+      moment_text: '—',
+      photo_name: 'No photo',
+      photo_data: '',
+    };
+    try {
+      await emailjs.send(SVC, TPL, p);
+      setSosSent(true);
+    } catch (err: unknown) {
+      setSosSendError('Failed to send: ' + ((err as { text?: string })?.text || String(err)));
+    } finally {
+      setSosSending(false);
+    }
+  }
+
+  function closeSOS() {
+    setSosOpen(false);
+    setSos({ name: '', location: '', note: '' });
+    setSosLocationError(false);
+    setSosSent(false);
+    setSosSendError('');
   }
 
   const CATEGORIES = ['Client / Session','Environment / Room','Team / Staffing','Schedule / Time','Payroll / Admin','Materials / Supplies','Tech / Data','Not sure'];
@@ -589,6 +644,94 @@ export default function App() {
             <h2>{thanksTitle}</h2>
             <p>{thanksMsg}</p>
             <div className="moja-countdown">Resetting in {countdown} second{countdown !== 1 ? 's' : ''}...</div>
+          </div>
+        </div>
+      )}
+
+      {/* SOS floating button */}
+      <button className="moja-sos-fab" onClick={() => { setSosOpen(true); setSosSent(false); }} aria-label="Send SOS alert">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        SOS
+      </button>
+
+      {/* SOS modal */}
+      {sosOpen && (
+        <div className="moja-sos-overlay" onClick={e => { if (e.target === e.currentTarget) closeSOS(); }}>
+          <div className="moja-sos-modal">
+            {sosSent ? (
+              <div className="moja-sos-sent">
+                <div className="moja-sos-sent-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 32, height: 32 }}>
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <h3>SOS Sent</h3>
+                <p>Your alert has been sent to the admin team. Help is on the way.</p>
+                <button className="moja-sos-close-btn" onClick={closeSOS}>Close</button>
+              </div>
+            ) : (
+              <>
+                <div className="moja-sos-modal-header">
+                  <div className="moja-sos-header-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                      <line x1="12" y1="9" x2="12" y2="13"/>
+                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="moja-sos-modal-title">Send SOS Alert</div>
+                    <div className="moja-sos-modal-sub">Admin will be notified immediately</div>
+                  </div>
+                  <button className="moja-sos-x" onClick={closeSOS} aria-label="Close">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
+                <div className="moja-sos-modal-body">
+                  <div className="moja-sos-field">
+                    <label className="moja-sos-label">Your name <span className="moja-hint">(optional if already entered)</span></label>
+                    <input
+                      type="text"
+                      className="moja-input"
+                      placeholder={staffName.trim() ? staffName : 'Your full name'}
+                      value={sos.name}
+                      onChange={e => setSos(s => ({ ...s, name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="moja-sos-field">
+                    <label className="moja-sos-label">Location <span className="moja-required">*</span></label>
+                    <input
+                      type="text"
+                      className={`moja-input${sosLocationError ? ' moja-input-error' : ''}`}
+                      placeholder="e.g. Room 3, Main hallway, Parking lot"
+                      value={sos.location}
+                      onChange={e => { setSos(s => ({ ...s, location: e.target.value })); if (e.target.value.trim()) setSosLocationError(false); }}
+                    />
+                    {sosLocationError && <p className="moja-inline-error">Please enter a location.</p>}
+                  </div>
+                  <div className="moja-sos-field">
+                    <label className="moja-sos-label">Additional info <span className="moja-hint">(optional)</span></label>
+                    <textarea
+                      className="moja-textarea"
+                      style={{ minHeight: 76 }}
+                      placeholder="Briefly describe what's happening..."
+                      value={sos.note}
+                      onChange={e => setSos(s => ({ ...s, note: e.target.value }))}
+                    />
+                  </div>
+                  {sosSendError && <p className="moja-submit-error">{sosSendError}</p>}
+                  <button className="moja-sos-send-btn" disabled={sosSending} onClick={sendSOS}>
+                    {sosSending ? 'Sending...' : 'Send SOS Now'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
