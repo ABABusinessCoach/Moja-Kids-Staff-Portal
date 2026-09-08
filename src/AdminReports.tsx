@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Trash2, ArrowLeft, FileSpreadsheet, Filter, Lock, MessageSquareReply, X, CheckCircle2, Clock } from 'lucide-react';
+import emailjs from '@emailjs/browser';
+import { Download, Trash2, ArrowLeft, FileSpreadsheet, Filter, Lock, MessageSquareReply, X, CheckCircle2, Clock, Mail } from 'lucide-react';
 import { loadReports, toCSV, downloadCSV, clearReports, updateReportStatus, addResponse, STATUS_OPTIONS, ReportRow, ReportStatus } from './reports';
+
+emailjs.init('bMB4o-cBjiQ1vODli');
+const SVC = 'service_y6hfvxk';
+const TPL = 'template_qktlb8f';
 
 type TypeFilter = 'all' | 'Heads Up' | 'Moja Moment' | 'Tech Issue' | 'SOS';
 type StatusFilter = 'all' | ReportStatus;
@@ -291,18 +296,26 @@ function ResponseModal({
     setTimeout(() => { setSaved(false); onClose(); }, 700);
   }
 
+  function flashSaved() {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 700);
+  }
+
   function quick(msg: string, status?: ReportStatus) {
     try {
       onSubmit(msg, status, by);
       setText('');
       setSaveError('');
-      flashSavedThenClose();
+      flashSaved();
     } catch (err) {
       setSaveError((err as Error).message || 'Could not save. Please try again.');
     }
   }
 
-  function submit(e: React.FormEvent) {
+  const [sending, setSending] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState('');
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = text.trim();
     const statusChanged = changeStatus && newStatus !== report.status;
@@ -312,6 +325,38 @@ function ResponseModal({
       setText('');
       setSaveError('');
       flashSavedThenClose();
+
+      if (report.staffEmail) {
+        setSending(true);
+        setNotifyMsg('');
+        const statusLine = statusChanged ? `Status updated to: ${newStatus}` : '';
+        const emailParams = {
+          to_email: report.staffEmail,
+          submission_type: report.submissionType,
+          staff_name: report.staffName || 'there',
+          headsup_text: trimmed || `Status updated to ${newStatus}.`,
+          improvement: statusLine,
+          urgency: report.urgency || '—',
+          followup: report.followup || '—',
+          category: report.category || '—',
+          impact: report.impact || '—',
+          involved_staff: report.involvedStaff || '—',
+          involved_client: report.involvedClient || '—',
+          moment_client: report.momentClient || '—',
+          moment_staff: report.momentStaff || '—',
+          moment_text: report.momentText || '—',
+          photo_name: report.photoName || 'No photo',
+          photo_data: '',
+        };
+        try {
+          await emailjs.send(SVC, TPL, emailParams);
+          setNotifyMsg('Notification sent to ' + report.staffEmail);
+        } catch {
+          setNotifyMsg('Could not send notification email. Response was still saved.');
+        } finally {
+          setSending(false);
+        }
+      }
     } catch (err) {
       setSaveError((err as Error).message || 'Could not save. Please try again.');
     }
@@ -439,6 +484,8 @@ function ResponseModal({
             </div>
             {saveError && <div style={styles.errorBanner}>{saveError}</div>}
             {saved && <div style={styles.savedBanner}><CheckCircle2 size={14} /> Saved to this device</div>}
+            {sending && <div style={{ ...styles.savedBanner, background: '#eef4f8', color: '#355574' }}><Mail size={14} /> Sending notification...</div>}
+            {notifyMsg && <div style={{ ...styles.savedBanner, background: notifyMsg.startsWith('Could not') ? '#fce9df' : '#dff5e8', color: notifyMsg.startsWith('Could not') ? '#c0392b' : '#1e7a3d' }}><Mail size={14} /> {notifyMsg}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
               <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
               <button
