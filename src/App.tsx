@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import emailjs from '@emailjs/browser';
+import AdminReports from './AdminReports';
+import { saveReport } from './reports';
 
 emailjs.init('bMB4o-cBjiQ1vODli');
 const SVC = 'service_y6hfvxk';
@@ -259,6 +261,13 @@ function Header({ title, subtitle, dark, showDownload }: { title: string; subtit
 }
 
 export default function App() {
+  const [route, setRoute] = useState<string>(() => (typeof window !== 'undefined' ? window.location.hash : ''));
+  useEffect(() => {
+    const onHash = () => setRoute(window.location.hash);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   const [screen, setScreen] = useState<Screen>('name');
   const [staffName, setStaffName] = useState('');
   const [nameError, setNameError] = useState(false);
@@ -379,6 +388,7 @@ export default function App() {
       moment_client: '—', moment_staff: '—', moment_text: '—',
       photo_name: hu.photoName || 'No photo', photo_data: hu.photoB64 || '',
     };
+    saveReport({ submissionType: 'Heads Up', staffName, category: hu.category, impact: hu.impact, involvedStaff: hu.staff || '', involvedClient: hu.client || '', headsupText: hu.text, improvement: hu.improvement || '', urgency: uLabel(hu.urgency), followup: hu.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: hu.photoName || '' });
     try {
       await emailjs.send(SVC, TPL, p);
       if (submissionType === 'both') { show('moment'); }
@@ -399,6 +409,7 @@ export default function App() {
       moment_client: mm.client || '—', moment_staff: mm.staff || '—', moment_text: mm.text,
       photo_name: 'No photo', photo_data: '',
     };
+    saveReport({ submissionType: 'Moja Moment', staffName, category: '', impact: '', involvedStaff: mm.staff || '', involvedClient: mm.client || '', headsupText: '', improvement: '', urgency: '', followup: '', momentClient: mm.client || '', momentStaff: mm.staff || '', momentText: mm.text, photoName: '' });
     try {
       await emailjs.send(SVC, TPL, p);
       setThanksTitle('Moja Moment shared!');
@@ -445,6 +456,7 @@ export default function App() {
       photo_name: tech.photoName || 'No screenshot',
       photo_data: tech.photoB64 || '',
     };
+    saveReport({ submissionType: 'Tech Issue', staffName, category: tech.issueType, impact: tech.system || '', involvedStaff: staffName, involvedClient: '', headsupText: `TRYING TO DO: ${tech.tryingTo || '—'}\n\nWHAT HAPPENED: ${tech.whatHappened}\n\nSTEPS TRIED: ${tech.stepsTried || '—'}`, improvement: '', urgency: uLabel(tech.urgency), followup: tech.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: tech.photoName || '' });
     try {
       await emailjs.send(SVC, TPL, p);
       setThanksTitle('Tech Issue reported!');
@@ -479,6 +491,7 @@ export default function App() {
       photo_name: 'No photo',
       photo_data: '',
     };
+    saveReport({ submissionType: 'SOS — URGENT HELP NEEDED', staffName: senderName, category: 'EMERGENCY', impact: 'Safety', involvedStaff: senderName, involvedClient: '', headsupText: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`, improvement: '', urgency: 'RED — IMMEDIATE HELP NEEDED', followup: 'Yes — follow up immediately', momentClient: '', momentStaff: '', momentText: '', photoName: '' });
     try {
       await emailjs.send(SVC, TPL, p);
       setSosSent(true);
@@ -504,6 +517,10 @@ export default function App() {
     { id: 'yellow' as const, label: 'Yellow — Address within the week', desc: 'Important but not immediately urgent' },
     { id: 'green' as const, label: 'Green — Not stopping anything', desc: 'Low urgency, address when convenient' },
   ];
+
+  if (route === '#admin' || route === '#reports') {
+    return <AdminReports onBack={() => { window.location.hash = ''; }} />;
+  }
 
   return (
     <div className="moja-app">
@@ -532,6 +549,13 @@ export default function App() {
                 />
                 {nameError && <p className="moja-inline-error" style={{ textAlign: 'center', marginTop: '-10px', marginBottom: 12 }}>Please enter your name to continue.</p>}
                 <button className="moja-btn-primary" onClick={goToTypeSelect}>Get Started</button>
+                <button
+                  type="button"
+                  onClick={() => { window.location.hash = '#admin'; }}
+                  style={{ marginTop: 18, background: 'transparent', border: 'none', color: '#7a8e97', fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Admin: View reports spreadsheet
+                </button>
               </div>
             </div>
           </div>
