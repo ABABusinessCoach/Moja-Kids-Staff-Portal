@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import emailjs from '@emailjs/browser';
 import { Download, ArrowLeft, FileSpreadsheet, Filter, Lock, MessageSquareReply, X, CheckCircle2, Clock, Mail } from 'lucide-react';
 import { loadReports, toCSV, downloadCSV, updateReportStatus, addResponse, STATUS_OPTIONS, ReportRow, ReportStatus } from './reports';
-
-emailjs.init('bMB4o-cBjiQ1vODli');
-const SVC = 'service_y6hfvxk';
-const TPL = 'template_qktlb8f';
+import { sendResponseEmail as sendResponseEmailApi } from './email';
 
 type TypeFilter = 'all' | 'Heads Up' | 'Moja Moment' | 'Tech Issue' | 'SOS';
 type StatusFilter = 'all' | ReportStatus;
@@ -76,9 +72,13 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
     const trimmedName = by.trim() || 'Admin';
     localStorage.setItem(ADMIN_NAME_KEY, trimmedName);
     setAdminName(trimmedName);
-    const next = await addResponse(id, text, trimmedName, statusChange);
-    setRows(next);
-    setActiveReport(next.find(r => r.id === id) ?? null);
+    try {
+      const next = await addResponse(id, text, trimmedName, statusChange);
+      setRows(next);
+      setActiveReport(next.find(r => r.id === id) ?? null);
+    } catch (err) {
+      setLoadError((err as Error).message);
+    }
   }
 
   const filtered = useMemo(() => {
@@ -317,7 +317,7 @@ function ResponseModal({
   const [sending, setSending] = useState(false);
   const [notifyMsg, setNotifyMsg] = useState('');
 
-  async function sendResponseEmail(responseText: string, statusLabel: string, closeOnDone: boolean) {
+  async function sendResponseNotification(responseText: string, statusLabel: string, closeOnDone: boolean) {
     const requestorEmail = report.staffEmail.trim();
     if (!requestorEmail) {
       if (closeOnDone) flashSavedThenClose();
@@ -335,59 +335,25 @@ function ResponseModal({
       ? report.momentText
       : report.headsupText;
 
-    const updateBody = [
-      `Hi ${report.staffName?.split(' ')[0] || 'there'},`,
-      '',
-      `There is an update on your ${report.submissionType} submission from ${formattedDate}.`,
-      '',
-      '── Admin Response ──',
-      responseText,
-      '',
-      `Status: ${statusLabel}`,
-      '',
-      '── Original Submission Details ──',
-      report.category ? `Category: ${report.category}` : '',
-      report.impact ? `Impact: ${report.impact}` : '',
-      report.urgency ? `Urgency: ${report.urgency}` : '',
-      report.followup ? `Follow-up: ${report.followup}` : '',
-      report.involvedStaff ? `Staff involved: ${report.involvedStaff}` : '',
-      report.involvedClient ? `Client involved: ${report.involvedClient}` : '',
-      originalSummary ? `\nDescription:\n${originalSummary}` : '',
-      report.improvement ? `\nSuggested improvement:\n${report.improvement}` : '',
-      '',
-      '──',
-      'This is an automated notification from Moja Behavioral Services.',
-      'If you have questions, please reply to hello@mojakids.com.',
-    ].filter(line => line !== '').join('\n');
-
-    const emailParams = {
-      to_email: requestorEmail,
-      reply_to: 'hello@mojakids.com',
-      email_subject: `Update: Your ${report.submissionType} submission — ${statusLabel}`,
-      submission_type: `Update: ${report.submissionType}`,
-      staff_name: report.staffName || 'there',
-      headsup_text: updateBody,
-      improvement: '—',
-      urgency: report.urgency || '—',
-      followup: report.followup || '—',
-      category: report.category || '—',
-      impact: report.impact || '—',
-      involved_staff: report.involvedStaff || '—',
-      involved_client: report.involvedClient || '—',
-      moment_client: report.momentClient || '—',
-      moment_staff: report.momentStaff || '—',
-      moment_text: report.momentText || '—',
-      photo_name: report.photoName || 'No photo',
-      photo_data: '',
-    };
     try {
-      await emailjs.send(SVC, TPL, emailParams);
+      await sendResponseEmailApi({
+        staffEmail: requestorEmail,
+        staffName: report.staffName || 'there',
+        submissionType: report.submissionType,
+        submittedDate: formattedDate,
+        responseText,
+        statusLabel,
+        originalSummary: originalSummary || undefined,
+        category: report.category || undefined,
+        impact: report.impact || undefined,
+        urgency: report.urgency || undefined,
+        followup: report.followup || undefined,
+        involvedStaff: report.involvedStaff || undefined,
+        involvedClient: report.involvedClient || undefined,
+      });
       setNotifyMsg('Update sent to ' + requestorEmail);
-    } catch (err) {
-      const detail = (err as { text?: string; message?: string })?.text
-        || (err as { message?: string })?.message
-        || 'Unknown error';
-      setNotifyMsg('Email failed: ' + detail + '. Response was still saved.');
+    } catch {
+      setNotifyMsg('Could not send email notification to ' + requestorEmail + '. Response was still saved.');
     } finally {
       setSending(false);
       if (closeOnDone) flashSavedThenClose();
@@ -400,7 +366,7 @@ function ResponseModal({
       await onSubmit(msg, status, by);
       setText('');
       setSaveError('');
-      await sendResponseEmail(msg, status ? `Status updated to: ${status}` : 'Status unchanged', false);
+      await sendResponseNotification(msg, status ? `Status updated to: ${status}` : 'Status unchanged', false);
     } catch (err) {
       setSaveError((err as Error).message || 'Could not save. Please try again.');
     }
@@ -417,7 +383,7 @@ function ResponseModal({
       setText('');
       setSaveError('');
       const statusLabel = statusChanged ? `Status updated to: ${newStatus}` : 'Status unchanged';
-      await sendResponseEmail(responseText, statusLabel, true);
+      await sendResponseNotification(responseText, statusLabel, true);
     } catch (err) {
       setSaveError((err as Error).message || 'Could not save. Please try again.');
     }

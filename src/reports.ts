@@ -196,13 +196,6 @@ export async function addResponse(
   return loadReports();
 }
 
-export async function clearReports(): Promise<void> {
-  const { error } = await supabase
-    .from('reports')
-    .delete()
-    .neq('id', '00000000-0000-0000-0000-000000000000');
-  if (error) throw new Error(error.message);
-}
 
 const COLUMNS: { key: keyof ReportRow; label: string }[] = [
   { key: 'createdAt', label: 'Submitted At' },

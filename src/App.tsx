@@ -1,12 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import emailjs from '@emailjs/browser';
 import AdminReports from './AdminReports';
 import { saveReport } from './reports';
-
-emailjs.init('bMB4o-cBjiQ1vODli');
-const SVC = 'service_y6hfvxk';
-const TPL = 'template_qktlb8f';
-const ADMIN = 'hello@mojakids.com';
+import { sendSubmissionEmail } from './email';
 
 type Screen = 'name' | 'type' | 'headsup' | 'moment' | 'tech' | 'thanks';
 type SubmissionType = 'headsup' | 'moment' | 'tech' | '';
@@ -197,23 +192,12 @@ export default function App() {
     if (Object.values(errors).some(Boolean)) return;
     setHuSubmitting(true);
     setHuSubmitError('');
-    const p = {
-      to_email: ADMIN, submission_type: 'Heads Up', staff_name: staffName, staff_email: staffEmail,
-      category: hu.category, impact: hu.impact,
-      involved_staff: hu.staff || '—', involved_client: hu.client || '—',
-      headsup_text: hu.text, improvement: hu.improvement || '—',
-      urgency: uLabel(hu.urgency),
-      followup: hu.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed',
-      moment_client: '—', moment_staff: '—', moment_text: '—',
-      photo_name: hu.photoName || 'No photo', photo_data: hu.photoB64 || '',
-    };
     try {
       await saveReport({ submissionType: 'Heads Up', staffName, staffEmail, category: hu.category, impact: hu.impact, involvedStaff: hu.staff || '', involvedClient: hu.client || '', headsupText: hu.text, improvement: hu.improvement || '', urgency: uLabel(hu.urgency), followup: hu.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: hu.photoName || '' });
-      await emailjs.send(SVC, TPL, p);
-      if (submissionType === ('both' as SubmissionType)) { show('moment'); }
-      else { setThanksTitle('Heads Up submitted!'); setThanksMsg("Sent to hello@mojakids.com — it'll be routed to the right person."); show('thanks'); }
+      sendSubmissionEmail({ submissionType: 'Heads Up', staffName, staffEmail, category: hu.category, impact: hu.impact, involvedStaff: hu.staff || '', involvedClient: hu.client || '', description: hu.text, improvement: hu.improvement || '', urgency: uLabel(hu.urgency), followup: hu.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', photoName: hu.photoName || '' });
+      setThanksTitle('Heads Up submitted!'); setThanksMsg("Sent to hello@mojakids.com — it'll be routed to the right person."); show('thanks');
     } catch (err: unknown) {
-      setHuSubmitError('Something went wrong while sending. Please try again.');
+      setHuSubmitError('Something went wrong while saving. Please try again.');
     } finally { setHuSubmitting(false); }
   }
 
@@ -221,21 +205,14 @@ export default function App() {
     setMmTextError(false);
     setMmSubmitting(true);
     setMmSubmitError('');
-    const p = {
-      to_email: ADMIN, submission_type: 'Moja Moment', staff_name: staffName, staff_email: staffEmail,
-      category: '—', impact: '—', involved_staff: mm.staff || '—', involved_client: mm.client || '—',
-      headsup_text: '—', improvement: '—', urgency: '—', followup: '—',
-      moment_client: mm.client || '—', moment_staff: mm.staff || '—', moment_text: mm.text,
-      photo_name: 'No photo', photo_data: '',
-    };
     try {
       await saveReport({ submissionType: 'Moja Moment', staffName, staffEmail, category: '', impact: '', involvedStaff: mm.staff || '', involvedClient: mm.client || '', headsupText: '', improvement: '', urgency: '', followup: '', momentClient: mm.client || '', momentStaff: mm.staff || '', momentText: mm.text, photoName: '' });
-      await emailjs.send(SVC, TPL, p);
+      sendSubmissionEmail({ submissionType: 'Moja Moment', staffName, staffEmail, involvedStaff: mm.staff || '', involvedClient: mm.client || '', description: mm.text });
       setThanksTitle('Moja Moment shared!');
       setThanksMsg('Sent to hello@mojakids.com. Thank you for celebrating your team.');
       show('thanks');
     } catch (err: unknown) {
-      setMmSubmitError('Something went wrong while sending. Please try again.');
+      setMmSubmitError('Something went wrong while saving. Please try again.');
     } finally { setMmSubmitting(false); }
   }
 
@@ -257,33 +234,14 @@ export default function App() {
     if (Object.values(errors).some(Boolean)) return;
     setTechSubmitting(true);
     setTechSubmitError('');
-    const p = {
-      to_email: ADMIN,
-      submission_type: 'Tech Issue',
-      staff_name: staffName,
-      staff_email: staffEmail,
-      category: tech.issueType,
-      impact: tech.system || '—',
-      involved_staff: staffName,
-      involved_client: '—',
-      headsup_text: `TRYING TO DO: ${tech.tryingTo || '—'}\n\nWHAT HAPPENED: ${tech.whatHappened}\n\nSTEPS TRIED: ${tech.stepsTried || '—'}`,
-      improvement: '—',
-      urgency: uLabel(tech.urgency),
-      followup: tech.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed',
-      moment_client: '—',
-      moment_staff: '—',
-      moment_text: '—',
-      photo_name: tech.photoName || 'No screenshot',
-      photo_data: tech.photoB64 || '',
-    };
     try {
       await saveReport({ submissionType: 'Tech Issue', staffName, staffEmail, category: tech.issueType, impact: tech.system || '', involvedStaff: staffName, involvedClient: '', headsupText: `TRYING TO DO: ${tech.tryingTo || '—'}\n\nWHAT HAPPENED: ${tech.whatHappened}\n\nSTEPS TRIED: ${tech.stepsTried || '—'}`, improvement: '', urgency: uLabel(tech.urgency), followup: tech.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: tech.photoName || '' });
-      await emailjs.send(SVC, TPL, p);
+      sendSubmissionEmail({ submissionType: 'Tech Issue', staffName, staffEmail, category: tech.issueType, impact: tech.system || '', involvedStaff: staffName, description: `TRYING TO DO: ${tech.tryingTo || '—'}\n\nWHAT HAPPENED: ${tech.whatHappened}\n\nSTEPS TRIED: ${tech.stepsTried || '—'}`, urgency: uLabel(tech.urgency), followup: tech.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', photoName: tech.photoName || '' });
       setThanksTitle('Tech Issue reported!');
       setThanksMsg('Sent to hello@mojakids.com. The team will look into it right away.');
       show('thanks');
     } catch (err: unknown) {
-      setTechSubmitError('Something went wrong while sending. Please try again.');
+      setTechSubmitError('Something went wrong while saving. Please try again.');
     } finally { setTechSubmitting(false); }
   }
 
@@ -293,31 +251,12 @@ export default function App() {
     setSosSending(true);
     setSosSendError('');
     const senderName = sos.name.trim() || staffName.trim() || 'Unknown staff';
-    const p = {
-      to_email: ADMIN,
-      submission_type: 'SOS — URGENT HELP NEEDED',
-      staff_name: senderName,
-      staff_email: staffEmail,
-      category: 'EMERGENCY',
-      impact: 'Safety',
-      involved_staff: senderName,
-      involved_client: '—',
-      headsup_text: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`,
-      improvement: '—',
-      urgency: 'RED — IMMEDIATE HELP NEEDED',
-      followup: 'Yes — follow up immediately',
-      moment_client: '—',
-      moment_staff: '—',
-      moment_text: '—',
-      photo_name: 'No photo',
-      photo_data: '',
-    };
     try {
       await saveReport({ submissionType: 'SOS — URGENT HELP NEEDED', staffName: senderName, staffEmail, category: 'EMERGENCY', impact: 'Safety', involvedStaff: senderName, involvedClient: '', headsupText: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`, improvement: '', urgency: 'RED — IMMEDIATE HELP NEEDED', followup: 'Yes — follow up immediately', momentClient: '', momentStaff: '', momentText: '', photoName: '' });
-      await emailjs.send(SVC, TPL, p);
+      sendSubmissionEmail({ submissionType: 'SOS — URGENT HELP NEEDED', staffName: senderName, staffEmail, category: 'EMERGENCY', impact: 'Safety', involvedStaff: senderName, description: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`, urgency: 'RED — IMMEDIATE HELP NEEDED', followup: 'Yes — follow up immediately' });
       setSosSent(true);
     } catch (err: unknown) {
-      setSosSendError('Something went wrong while sending. Please try again.');
+      setSosSendError('Something went wrong while saving. Please try again.');
     } finally {
       setSosSending(false);
     }
