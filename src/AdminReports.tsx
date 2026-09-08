@@ -324,7 +324,6 @@ function ResponseModal({
       onSubmit(trimmed || `Status updated to ${newStatus}.`, statusChanged ? newStatus : undefined, by);
       setText('');
       setSaveError('');
-      flashSavedThenClose();
 
       if (report.staffEmail) {
         setSending(true);
@@ -355,7 +354,10 @@ function ResponseModal({
           setNotifyMsg('Could not send notification email. Response was still saved.');
         } finally {
           setSending(false);
+          flashSavedThenClose();
         }
+      } else {
+        flashSavedThenClose();
       }
     } catch (err) {
       setSaveError((err as Error).message || 'Could not save. Please try again.');
@@ -490,10 +492,10 @@ function ResponseModal({
               <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
               <button
                 type="submit"
-                style={styles.saveBtn}
-                disabled={saved || (!text.trim() && !(changeStatus && newStatus !== report.status))}
+                style={{ ...styles.saveBtn, opacity: sending ? 0.7 : 1 }}
+                disabled={saved || sending || (!text.trim() && !(changeStatus && newStatus !== report.status))}
               >
-                {saved ? 'Saved' : 'Save response'}
+                {sending ? 'Sending...' : saved ? 'Saved' : 'Save response'}
               </button>
             </div>
           </form>
