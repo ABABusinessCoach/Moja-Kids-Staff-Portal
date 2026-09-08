@@ -70,6 +70,7 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
         const q = query.trim().toLowerCase();
         return (
           r.staffName.toLowerCase().includes(q) ||
+          r.staffEmail.toLowerCase().includes(q) ||
           r.category.toLowerCase().includes(q) ||
           r.impact.toLowerCase().includes(q) ||
           r.headsupText.toLowerCase().includes(q) ||
@@ -209,6 +210,7 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
               <th style={styles.th}>Status</th>
               <th style={styles.th}>Type</th>
               <th style={styles.th}>Staff</th>
+              <th style={styles.th}>Email</th>
               <th style={styles.th}>Category</th>
               <th style={styles.th}>Impact</th>
               <th style={styles.th}>Urgency</th>
@@ -220,7 +222,7 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} style={styles.empty}>
+                <td colSpan={11} style={styles.empty}>
                   {rows.length === 0
                     ? 'No reports yet. Submissions from this device will appear here automatically.'
                     : 'No reports match the current filter.'}
@@ -232,6 +234,7 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
                 <td style={styles.td}><StatusSelect value={r.status} onChange={s => handleStatusChange(r.id, s)} /></td>
                 <td style={styles.td}><TypeBadge type={r.submissionType} /></td>
                 <td style={styles.td}>{r.staffName || '—'}</td>
+                <td style={styles.td}>{r.staffEmail ? <a href={`mailto:${r.staffEmail}?subject=${encodeURIComponent('Re: your ' + r.submissionType + ' submission')}`} style={{ color: '#355574', fontWeight: 600 }}>{r.staffEmail}</a> : '—'}</td>
                 <td style={styles.td}>{r.category || '—'}</td>
                 <td style={styles.td}>{r.impact || '—'}</td>
                 <td style={styles.td}><UrgencyPill urgency={r.urgency} /></td>
@@ -277,20 +280,41 @@ function ResponseModal({
   const [by, setBy] = useState(defaultName);
   const [newStatus, setNewStatus] = useState<ReportStatus>(report.status === 'New' ? 'Acknowledged' : report.status);
   const [changeStatus, setChangeStatus] = useState<boolean>(report.status === 'New');
+  const [saveError, setSaveError] = useState<string>('');
+  const [saved, setSaved] = useState<boolean>(false);
 
   const isMoment = report.submissionType.startsWith('Moja Moment');
   const detailText = isMoment ? report.momentText : report.headsupText;
 
+  function flashSavedThenClose() {
+    setSaved(true);
+    setTimeout(() => { setSaved(false); onClose(); }, 700);
+  }
+
   function quick(msg: string, status?: ReportStatus) {
-    onSubmit(msg, status, by);
-    setText('');
+    try {
+      onSubmit(msg, status, by);
+      setText('');
+      setSaveError('');
+      flashSavedThenClose();
+    } catch (err) {
+      setSaveError((err as Error).message || 'Could not save. Please try again.');
+    }
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim()) return;
-    onSubmit(text.trim(), changeStatus ? newStatus : undefined, by);
-    setText('');
+    const trimmed = text.trim();
+    const statusChanged = changeStatus && newStatus !== report.status;
+    if (!trimmed && !statusChanged) return;
+    try {
+      onSubmit(trimmed || `Status updated to ${newStatus}.`, statusChanged ? newStatus : undefined, by);
+      setText('');
+      setSaveError('');
+      flashSavedThenClose();
+    } catch (err) {
+      setSaveError((err as Error).message || 'Could not save. Please try again.');
+    }
   }
 
   return (
@@ -300,6 +324,7 @@ function ResponseModal({
           <div>
             <div style={styles.modalKicker}>Respond to {report.submissionType}</div>
             <div style={styles.modalTitle}>{report.staffName || 'Unnamed submitter'} — {new Date(report.createdAt).toLocaleString()}</div>
+            {report.staffEmail && <div style={{ fontSize: 12, color: '#355574', marginTop: 4 }}><a href={`mailto:${report.staffEmail}?subject=${encodeURIComponent('Re: your ' + report.submissionType + ' submission')}`} style={{ color: '#355574' }}>{report.staffEmail}</a></div>}
           </div>
           <button onClick={onClose} style={styles.modalClose} aria-label="Close"><X size={18} /></button>
         </div>
@@ -412,9 +437,17 @@ function ResponseModal({
                 </div>
               </label>
             </div>
+            {saveError && <div style={styles.errorBanner}>{saveError}</div>}
+            {saved && <div style={styles.savedBanner}><CheckCircle2 size={14} /> Saved to this device</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
               <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
-              <button type="submit" style={styles.saveBtn} disabled={!text.trim()}>Save response</button>
+              <button
+                type="submit"
+                style={styles.saveBtn}
+                disabled={saved || (!text.trim() && !(changeStatus && newStatus !== report.status))}
+              >
+                {saved ? 'Saved' : 'Save response'}
+              </button>
             </div>
           </form>
         </div>
@@ -546,4 +579,6 @@ const styles: Record<string, React.CSSProperties> = {
   input: { padding: '8px 10px', border: '1.5px solid #dde8e4', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none' },
   cancelBtn: { padding: '9px 14px', background: '#fff', color: '#7a8e97', border: '1.5px solid #dde8e4', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   saveBtn: { padding: '9px 16px', background: '#355574', color: '#fff', border: 'none', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  savedBanner: { display: 'inline-flex', alignItems: 'center', gap: 6, background: '#dff5e8', color: '#1e7a3d', padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, marginTop: 4 },
+  errorBanner: { background: '#fce9df', color: '#c0392b', padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, marginTop: 4 },
 };

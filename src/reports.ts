@@ -14,6 +14,7 @@ export interface ReportRow {
   createdAt: string;
   submissionType: string;
   staffName: string;
+  staffEmail: string;
   category: string;
   impact: string;
   involvedStaff: string;
@@ -42,6 +43,7 @@ function normalize(entry: Partial<ReportRow>): ReportRow {
     createdAt: entry.createdAt ?? new Date().toISOString(),
     submissionType: entry.submissionType ?? '',
     staffName: entry.staffName ?? '',
+    staffEmail: entry.staffEmail ?? '',
     category: entry.category ?? '',
     impact: entry.impact ?? '',
     involvedStaff: entry.involvedStaff ?? '',
@@ -79,8 +81,14 @@ export function addResponse(id: string, text: string, by: string, statusChange?:
       statusUpdatedAt: statusChange ? now : r.statusUpdatedAt,
     };
   });
-  localStorage.setItem(KEY, JSON.stringify(next));
+  persistReports(next);
   return next;
+}
+
+function persistReports(list: ReportRow[]) {
+  localStorage.setItem(KEY, JSON.stringify(list));
+  const check = localStorage.getItem(KEY);
+  if (!check) throw new Error('Save failed: storage returned empty after write.');
 }
 
 export function loadReports(): ReportRow[] {
@@ -100,14 +108,14 @@ export function saveReport(row: Omit<ReportRow, 'id' | 'createdAt' | 'status' | 
   const now = new Date().toISOString();
   const entry: ReportRow = normalize({ ...row, id: crypto.randomUUID(), createdAt: now, status: 'New', statusUpdatedAt: now, responses: [] });
   list.unshift(entry);
-  localStorage.setItem(KEY, JSON.stringify(list));
+  persistReports(list);
   return entry;
 }
 
 export function updateReportStatus(id: string, status: ReportStatus): ReportRow[] {
   const list = loadReports();
   const next = list.map(r => r.id === id ? { ...r, status, statusUpdatedAt: new Date().toISOString() } : r);
-  localStorage.setItem(KEY, JSON.stringify(next));
+  persistReports(next);
   return next;
 }
 
@@ -121,6 +129,7 @@ const COLUMNS: { key: keyof ReportRow; label: string }[] = [
   { key: 'statusUpdatedAt', label: 'Status Updated' },
   { key: 'submissionType', label: 'Type' },
   { key: 'staffName', label: 'Staff Name' },
+  { key: 'staffEmail', label: 'Staff Email' },
   { key: 'category', label: 'Category' },
   { key: 'impact', label: 'Impact' },
   { key: 'involvedStaff', label: 'Involved Staff' },

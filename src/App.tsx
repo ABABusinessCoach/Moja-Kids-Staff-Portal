@@ -270,7 +270,9 @@ export default function App() {
 
   const [screen, setScreen] = useState<Screen>('name');
   const [staffName, setStaffName] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
   const [nameError, setNameError] = useState(false);
+  const [emailError, setEmailError] = useState<'' | 'missing' | 'invalid'>('');
   const [submissionType, setSubmissionType] = useState<SubmissionType>('');
 
   const [hu, setHu] = useState<HUState>({
@@ -329,7 +331,9 @@ export default function App() {
 
   function resetAll() {
     setStaffName('');
+    setStaffEmail('');
     setNameError(false);
+    setEmailError('');
     setSubmissionType('');
     setHu({ category: '', impact: '', staff: '', client: '', text: '', improvement: '', urgency: '', followup: '', photoB64: '', photoName: '' });
     setHuErrors({ category: false, impact: false, text: false, urgency: false });
@@ -346,8 +350,14 @@ export default function App() {
   }
 
   function goToTypeSelect() {
-    if (!staffName.trim()) { setNameError(true); return; }
-    setNameError(false);
+    const emailTrim = staffEmail.trim();
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim);
+    let ok = true;
+    if (!staffName.trim()) { setNameError(true); ok = false; } else { setNameError(false); }
+    if (!emailTrim) { setEmailError('missing'); ok = false; }
+    else if (!emailValid) { setEmailError('invalid'); ok = false; }
+    else { setEmailError(''); }
+    if (!ok) return;
     show('type');
   }
 
@@ -379,7 +389,7 @@ export default function App() {
     setHuSubmitting(true);
     setHuSubmitError('');
     const p = {
-      to_email: ADMIN, submission_type: 'Heads Up', staff_name: staffName,
+      to_email: ADMIN, submission_type: 'Heads Up', staff_name: staffName, staff_email: staffEmail,
       category: hu.category, impact: hu.impact,
       involved_staff: hu.staff || '—', involved_client: hu.client || '—',
       headsup_text: hu.text, improvement: hu.improvement || '—',
@@ -388,7 +398,7 @@ export default function App() {
       moment_client: '—', moment_staff: '—', moment_text: '—',
       photo_name: hu.photoName || 'No photo', photo_data: hu.photoB64 || '',
     };
-    saveReport({ submissionType: 'Heads Up', staffName, category: hu.category, impact: hu.impact, involvedStaff: hu.staff || '', involvedClient: hu.client || '', headsupText: hu.text, improvement: hu.improvement || '', urgency: uLabel(hu.urgency), followup: hu.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: hu.photoName || '' });
+    saveReport({ submissionType: 'Heads Up', staffName, staffEmail, category: hu.category, impact: hu.impact, involvedStaff: hu.staff || '', involvedClient: hu.client || '', headsupText: hu.text, improvement: hu.improvement || '', urgency: uLabel(hu.urgency), followup: hu.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: hu.photoName || '' });
     try {
       await emailjs.send(SVC, TPL, p);
       if (submissionType === 'both') { show('moment'); }
@@ -403,13 +413,13 @@ export default function App() {
     setMmSubmitting(true);
     setMmSubmitError('');
     const p = {
-      to_email: ADMIN, submission_type: 'Moja Moment', staff_name: staffName,
+      to_email: ADMIN, submission_type: 'Moja Moment', staff_name: staffName, staff_email: staffEmail,
       category: '—', impact: '—', involved_staff: mm.staff || '—', involved_client: mm.client || '—',
       headsup_text: '—', improvement: '—', urgency: '—', followup: '—',
       moment_client: mm.client || '—', moment_staff: mm.staff || '—', moment_text: mm.text,
       photo_name: 'No photo', photo_data: '',
     };
-    saveReport({ submissionType: 'Moja Moment', staffName, category: '', impact: '', involvedStaff: mm.staff || '', involvedClient: mm.client || '', headsupText: '', improvement: '', urgency: '', followup: '', momentClient: mm.client || '', momentStaff: mm.staff || '', momentText: mm.text, photoName: '' });
+    saveReport({ submissionType: 'Moja Moment', staffName, staffEmail, category: '', impact: '', involvedStaff: mm.staff || '', involvedClient: mm.client || '', headsupText: '', improvement: '', urgency: '', followup: '', momentClient: mm.client || '', momentStaff: mm.staff || '', momentText: mm.text, photoName: '' });
     try {
       await emailjs.send(SVC, TPL, p);
       setThanksTitle('Moja Moment shared!');
@@ -442,6 +452,7 @@ export default function App() {
       to_email: ADMIN,
       submission_type: 'Tech Issue',
       staff_name: staffName,
+      staff_email: staffEmail,
       category: tech.issueType,
       impact: tech.system || '—',
       involved_staff: staffName,
@@ -456,7 +467,7 @@ export default function App() {
       photo_name: tech.photoName || 'No screenshot',
       photo_data: tech.photoB64 || '',
     };
-    saveReport({ submissionType: 'Tech Issue', staffName, category: tech.issueType, impact: tech.system || '', involvedStaff: staffName, involvedClient: '', headsupText: `TRYING TO DO: ${tech.tryingTo || '—'}\n\nWHAT HAPPENED: ${tech.whatHappened}\n\nSTEPS TRIED: ${tech.stepsTried || '—'}`, improvement: '', urgency: uLabel(tech.urgency), followup: tech.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: tech.photoName || '' });
+    saveReport({ submissionType: 'Tech Issue', staffName, staffEmail, category: tech.issueType, impact: tech.system || '', involvedStaff: staffName, involvedClient: '', headsupText: `TRYING TO DO: ${tech.tryingTo || '—'}\n\nWHAT HAPPENED: ${tech.whatHappened}\n\nSTEPS TRIED: ${tech.stepsTried || '—'}`, improvement: '', urgency: uLabel(tech.urgency), followup: tech.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', momentClient: '', momentStaff: '', momentText: '', photoName: tech.photoName || '' });
     try {
       await emailjs.send(SVC, TPL, p);
       setThanksTitle('Tech Issue reported!');
@@ -477,6 +488,7 @@ export default function App() {
       to_email: ADMIN,
       submission_type: 'SOS — URGENT HELP NEEDED',
       staff_name: senderName,
+      staff_email: staffEmail,
       category: 'EMERGENCY',
       impact: 'Safety',
       involved_staff: senderName,
@@ -491,7 +503,7 @@ export default function App() {
       photo_name: 'No photo',
       photo_data: '',
     };
-    saveReport({ submissionType: 'SOS — URGENT HELP NEEDED', staffName: senderName, category: 'EMERGENCY', impact: 'Safety', involvedStaff: senderName, involvedClient: '', headsupText: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`, improvement: '', urgency: 'RED — IMMEDIATE HELP NEEDED', followup: 'Yes — follow up immediately', momentClient: '', momentStaff: '', momentText: '', photoName: '' });
+    saveReport({ submissionType: 'SOS — URGENT HELP NEEDED', staffName: senderName, staffEmail, category: 'EMERGENCY', impact: 'Safety', involvedStaff: senderName, involvedClient: '', headsupText: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`, improvement: '', urgency: 'RED — IMMEDIATE HELP NEEDED', followup: 'Yes — follow up immediately', momentClient: '', momentStaff: '', momentText: '', photoName: '' });
     try {
       await emailjs.send(SVC, TPL, p);
       setSosSent(true);
@@ -548,6 +560,18 @@ export default function App() {
                   onKeyDown={e => e.key === 'Enter' && goToTypeSelect()}
                 />
                 {nameError && <p className="moja-inline-error" style={{ textAlign: 'center', marginTop: '-10px', marginBottom: 12 }}>Please enter your name to continue.</p>}
+                <input
+                  type="email"
+                  className="moja-name-input"
+                  placeholder="Enter your email address"
+                  autoComplete="email"
+                  value={staffEmail}
+                  onChange={e => { setStaffEmail(e.target.value); if (e.target.value.trim()) setEmailError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && goToTypeSelect()}
+                  style={{ marginTop: 12 }}
+                />
+                {emailError === 'missing' && <p className="moja-inline-error" style={{ textAlign: 'center', marginTop: '-10px', marginBottom: 12 }}>Please enter your email so we can follow up with you.</p>}
+                {emailError === 'invalid' && <p className="moja-inline-error" style={{ textAlign: 'center', marginTop: '-10px', marginBottom: 12 }}>That email doesn't look right. Please check it and try again.</p>}
                 <button className="moja-btn-primary" onClick={goToTypeSelect}>Get Started</button>
                 <button
                   type="button"
