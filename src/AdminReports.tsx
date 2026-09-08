@@ -1,19 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Trash2, ArrowLeft, FileSpreadsheet, Filter, Lock } from 'lucide-react';
-import { loadReports, toCSV, downloadCSV, clearReports, ReportRow } from './reports';
+import { Download, Trash2, ArrowLeft, FileSpreadsheet, Filter, Lock, MessageSquareReply, X, CheckCircle2, Clock } from 'lucide-react';
+import { loadReports, toCSV, downloadCSV, clearReports, updateReportStatus, addResponse, STATUS_OPTIONS, ReportRow, ReportStatus } from './reports';
 
 type TypeFilter = 'all' | 'Heads Up' | 'Moja Moment' | 'Tech Issue' | 'SOS';
+type StatusFilter = 'all' | ReportStatus;
+
+const STATUS_COLORS: Record<ReportStatus, { bg: string; color: string; dot: string }> = {
+  'New':               { bg: '#eef4f8', color: '#355574', dot: '#355574' },
+  'Acknowledged':      { bg: '#e1eefb', color: '#1e4d8c', dot: '#3d78d6' },
+  'In Progress':       { bg: '#fef3d6', color: '#8a6300', dot: '#e6a800' },
+  'Awaiting Response': { bg: '#fce9df', color: '#c65423', dot: '#e66d38' },
+  'Completed':         { bg: '#dff5e8', color: '#1e7a3d', dot: '#27ae60' },
+};
 
 const ADMIN_PASSCODE = 'moja2026';
 const UNLOCK_KEY = 'moja_admin_unlocked_v1';
+const ADMIN_NAME_KEY = 'moja_admin_name_v1';
 
 export default function AdminReports({ onBack }: { onBack: () => void }) {
   const [rows, setRows] = useState<ReportRow[]>([]);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [query, setQuery] = useState('');
   const [unlocked, setUnlocked] = useState<boolean>(() => sessionStorage.getItem(UNLOCK_KEY) === 'yes');
   const [passInput, setPassInput] = useState('');
   const [passError, setPassError] = useState(false);
+  const [activeReport, setActiveReport] = useState<ReportRow | null>(null);
+  const [adminName, setAdminName] = useState<string>(() => localStorage.getItem(ADMIN_NAME_KEY) || '');
 
   useEffect(() => { if (unlocked) setRows(loadReports()); }, [unlocked]);
 
@@ -34,9 +47,25 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
     setUnlocked(false);
   }
 
+  function handleStatusChange(id: string, status: ReportStatus) {
+    const next = updateReportStatus(id, status);
+    setRows(next);
+    setActiveReport(prev => prev && prev.id === id ? next.find(r => r.id === id) ?? prev : prev);
+  }
+
+  function handleAddResponse(id: string, text: string, statusChange: ReportStatus | undefined, by: string) {
+    const trimmedName = by.trim() || 'Admin';
+    localStorage.setItem(ADMIN_NAME_KEY, trimmedName);
+    setAdminName(trimmedName);
+    const next = addResponse(id, text, trimmedName, statusChange);
+    setRows(next);
+    setActiveReport(next.find(r => r.id === id) ?? null);
+  }
+
   const filtered = useMemo(() => {
     return rows.filter(r => {
       if (typeFilter !== 'all' && !r.submissionType.startsWith(typeFilter)) return false;
+      if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (query.trim()) {
         const q = query.trim().toLowerCase();
         return (
@@ -51,7 +80,13 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
       }
       return true;
     });
-  }, [rows, typeFilter, query]);
+  }, [rows, typeFilter, statusFilter, query]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<ReportStatus, number> = { 'New': 0, 'Acknowledged': 0, 'In Progress': 0, 'Awaiting Response': 0, 'Completed': 0 };
+    for (const r of rows) c[r.status]++;
+    return c;
+  }, [rows]);
 
   const counts = useMemo(() => {
     const c = { headsup: 0, moment: 0, tech: 0, sos: 0 };
@@ -135,6 +170,15 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
             <option value="SOS">SOS alerts only</option>
           </select>
         </div>
+        <div style={styles.filterBox}>
+          <Filter size={14} color="#7a8e97" />
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as StatusFilter)} style={styles.select}>
+            <option value="all">All statuses</option>
+            {STATUS_OPTIONS.map(s => (
+              <option key={s} value={s}>{s} ({statusCounts[s]})</option>
+            ))}
+          </select>
+        </div>
         <input
           type="text"
           placeholder="Search staff, category, details..."
@@ -162,6 +206,7 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
           <thead>
             <tr>
               <th style={styles.th}>Submitted</th>
+              <th style={styles.th}>Status</th>
               <th style={styles.th}>Type</th>
               <th style={styles.th}>Staff</th>
               <th style={styles.th}>Category</th>
@@ -169,12 +214,13 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
               <th style={styles.th}>Urgency</th>
               <th style={styles.th}>Details</th>
               <th style={styles.th}>Follow-up</th>
+              <th style={styles.th}>Response</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} style={styles.empty}>
+                <td colSpan={10} style={styles.empty}>
                   {rows.length === 0
                     ? 'No reports yet. Submissions from this device will appear here automatically.'
                     : 'No reports match the current filter.'}
@@ -183,6 +229,7 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
             ) : filtered.map(r => (
               <tr key={r.id} style={styles.tr}>
                 <td style={styles.td}>{new Date(r.createdAt).toLocaleString()}</td>
+                <td style={styles.td}><StatusSelect value={r.status} onChange={s => handleStatusChange(r.id, s)} /></td>
                 <td style={styles.td}><TypeBadge type={r.submissionType} /></td>
                 <td style={styles.td}>{r.staffName || '—'}</td>
                 <td style={styles.td}>{r.category || '—'}</td>
@@ -192,11 +239,195 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
                   {r.submissionType.startsWith('Moja Moment') ? r.momentText : r.headsupText}
                 </td>
                 <td style={styles.td}>{r.followup || '—'}</td>
+                <td style={styles.td}>
+                  <button style={styles.respondBtn} onClick={() => setActiveReport(r)}>
+                    <MessageSquareReply size={13} />
+                    {r.responses.length > 0 ? `${r.responses.length} note${r.responses.length > 1 ? 's' : ''}` : 'Respond'}
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {activeReport && (
+        <ResponseModal
+          report={activeReport}
+          defaultName={adminName}
+          onClose={() => setActiveReport(null)}
+          onStatusChange={s => handleStatusChange(activeReport.id, s)}
+          onSubmit={(text, statusChange, by) => handleAddResponse(activeReport.id, text, statusChange, by)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ResponseModal({
+  report, defaultName, onClose, onSubmit, onStatusChange,
+}: {
+  report: ReportRow;
+  defaultName: string;
+  onClose: () => void;
+  onSubmit: (text: string, statusChange: ReportStatus | undefined, by: string) => void;
+  onStatusChange: (s: ReportStatus) => void;
+}) {
+  const [text, setText] = useState('');
+  const [by, setBy] = useState(defaultName);
+  const [newStatus, setNewStatus] = useState<ReportStatus>(report.status === 'New' ? 'Acknowledged' : report.status);
+  const [changeStatus, setChangeStatus] = useState<boolean>(report.status === 'New');
+
+  const isMoment = report.submissionType.startsWith('Moja Moment');
+  const detailText = isMoment ? report.momentText : report.headsupText;
+
+  function quick(msg: string, status?: ReportStatus) {
+    onSubmit(msg, status, by);
+    setText('');
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    onSubmit(text.trim(), changeStatus ? newStatus : undefined, by);
+    setText('');
+  }
+
+  return (
+    <div style={styles.modalBackdrop} onClick={onClose}>
+      <div style={styles.modalCard} onClick={e => e.stopPropagation()}>
+        <div style={styles.modalHead}>
+          <div>
+            <div style={styles.modalKicker}>Respond to {report.submissionType}</div>
+            <div style={styles.modalTitle}>{report.staffName || 'Unnamed submitter'} — {new Date(report.createdAt).toLocaleString()}</div>
+          </div>
+          <button onClick={onClose} style={styles.modalClose} aria-label="Close"><X size={18} /></button>
+        </div>
+
+        <div style={styles.modalBody}>
+          <div style={styles.modalMeta}>
+            {report.category && <MetaChip label="Category" value={report.category} />}
+            {report.impact && <MetaChip label="Impact" value={report.impact} />}
+            {report.urgency && <MetaChip label="Urgency" value={report.urgency} />}
+            {report.followup && <MetaChip label="Follow-up" value={report.followup} />}
+            {report.involvedStaff && <MetaChip label="Staff involved" value={report.involvedStaff} />}
+            {report.involvedClient && <MetaChip label="Client involved" value={report.involvedClient} />}
+          </div>
+
+          {detailText && (
+            <div style={styles.modalSection}>
+              <div style={styles.modalSectionLabel}>Original message</div>
+              <div style={styles.detailBox}>{detailText}</div>
+            </div>
+          )}
+          {report.improvement && (
+            <div style={styles.modalSection}>
+              <div style={styles.modalSectionLabel}>Suggested improvement</div>
+              <div style={styles.detailBox}>{report.improvement}</div>
+            </div>
+          )}
+
+          <div style={styles.modalSection}>
+            <div style={styles.modalSectionLabel}>Current status</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <StatusSelect value={report.status} onChange={onStatusChange} />
+              <span style={{ fontSize: 12, color: '#7a8e97' }}>
+                Updated {new Date(report.statusUpdatedAt).toLocaleString()}
+              </span>
+            </div>
+          </div>
+
+          <div style={styles.modalSection}>
+            <div style={styles.modalSectionLabel}>Quick actions</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" style={styles.quickBtn} onClick={() => quick('Received. We have seen this heads-up and will look into it.', 'Acknowledged')}>
+                <Clock size={13} /> Mark received
+              </button>
+              <button type="button" style={styles.quickBtn} onClick={() => quick('Action taken — issue has been addressed.', 'Completed')}>
+                <CheckCircle2 size={13} /> Action taken
+              </button>
+              <button type="button" style={styles.quickBtn} onClick={() => quick('Following up — more information needed from the submitter.', 'Awaiting Response')}>
+                <MessageSquareReply size={13} /> Awaiting response
+              </button>
+            </div>
+          </div>
+
+          {report.responses.length > 0 && (
+            <div style={styles.modalSection}>
+              <div style={styles.modalSectionLabel}>Response log</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[...report.responses].reverse().map(resp => (
+                  <div key={resp.id} style={styles.responseItem}>
+                    <div style={styles.responseHead}>
+                      <span style={styles.responseBy}>{resp.by}</span>
+                      <span style={styles.responseAt}>{new Date(resp.at).toLocaleString()}</span>
+                      {resp.statusChange && (
+                        <span style={{ ...styles.responseStatus, background: STATUS_COLORS[resp.statusChange].bg, color: STATUS_COLORS[resp.statusChange].color }}>
+                          → {resp.statusChange}
+                        </span>
+                      )}
+                    </div>
+                    <div style={styles.responseText}>{resp.text}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={submit} style={styles.modalSection}>
+            <div style={styles.modalSectionLabel}>Write a response</div>
+            <textarea
+              value={text}
+              onChange={e => setText(e.target.value)}
+              placeholder="Describe the action taken, acknowledge the submitter, or leave a follow-up note..."
+              rows={4}
+              style={styles.textarea}
+            />
+            <div style={styles.formRow}>
+              <label style={styles.formField}>
+                <span style={styles.formLabel}>Your name</span>
+                <input
+                  value={by}
+                  onChange={e => setBy(e.target.value)}
+                  placeholder="Admin name"
+                  style={styles.input}
+                />
+              </label>
+              <label style={styles.formField}>
+                <span style={styles.formLabel}>Also change status to</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={changeStatus}
+                    onChange={e => setChangeStatus(e.target.checked)}
+                  />
+                  <select
+                    value={newStatus}
+                    onChange={e => setNewStatus(e.target.value as ReportStatus)}
+                    disabled={!changeStatus}
+                    style={{ ...styles.input, flex: 1, opacity: changeStatus ? 1 : 0.5 }}
+                  >
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </label>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <button type="button" onClick={onClose} style={styles.cancelBtn}>Cancel</button>
+              <button type="submit" style={styles.saveBtn} disabled={!text.trim()}>Save response</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetaChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={styles.metaChip}>
+      <span style={styles.metaLabel}>{label}</span>
+      <span style={styles.metaValue}>{value}</span>
     </div>
   );
 }
@@ -206,6 +437,26 @@ function StatCard({ label, value, tint }: { label: string; value: number; tint: 
     <div style={{ ...styles.stat, borderTop: `3px solid ${tint}` }}>
       <div style={styles.statValue}>{value}</div>
       <div style={styles.statLabel}>{label}</div>
+    </div>
+  );
+}
+
+function StatusSelect({ value, onChange }: { value: ReportStatus; onChange: (s: ReportStatus) => void }) {
+  const c = STATUS_COLORS[value];
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: c.bg, borderRadius: 999, padding: '3px 4px 3px 10px' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.dot }} />
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value as ReportStatus)}
+        style={{
+          border: 'none', outline: 'none', background: 'transparent', color: c.color,
+          fontFamily: 'inherit', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          paddingRight: 4,
+        }}
+      >
+        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
     </div>
   );
 }
@@ -266,4 +517,33 @@ const styles: Record<string, React.CSSProperties> = {
   gateError: { color: '#c0392b', fontSize: 12, fontWeight: 600, marginTop: -2 },
   gateBtn: { width: '100%', padding: '11px 14px', background: '#355574', color: '#fff', border: 'none', borderRadius: 8, fontFamily: 'inherit', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginTop: 6 },
   gateBack: { background: 'transparent', border: 'none', color: '#7a8e97', fontFamily: 'inherit', fontSize: 12, cursor: 'pointer', marginTop: 4, textDecoration: 'underline' },
+  respondBtn: { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', background: '#eef4f8', color: '#355574', border: '1px solid #d5e2ea', borderRadius: 6, fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(20,35,50,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 1000 },
+  modalCard: { width: '100%', maxWidth: 640, maxHeight: '90vh', overflow: 'auto', background: '#fff', borderRadius: 14, boxShadow: '0 20px 60px rgba(20,35,50,0.30)', display: 'flex', flexDirection: 'column' },
+  modalHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '20px 24px 12px', borderBottom: '1px solid #eef1f4', gap: 12 },
+  modalKicker: { fontSize: 11, fontWeight: 700, color: '#7a8e97', letterSpacing: 0.6, textTransform: 'uppercase' },
+  modalTitle: { fontFamily: 'Playfair Display, serif', fontSize: 18, color: '#355574', marginTop: 4, fontWeight: 600 },
+  modalClose: { background: 'transparent', border: 'none', cursor: 'pointer', color: '#7a8e97', padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  modalBody: { padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 },
+  modalMeta: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  metaChip: { display: 'inline-flex', flexDirection: 'column', background: '#f7f9fb', border: '1px solid #eef1f4', borderRadius: 8, padding: '6px 10px', minWidth: 90 },
+  metaLabel: { fontSize: 10, color: '#7a8e97', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' },
+  metaValue: { fontSize: 13, color: '#2d2d2d', fontWeight: 500, marginTop: 2 },
+  modalSection: { display: 'flex', flexDirection: 'column', gap: 8 },
+  modalSectionLabel: { fontSize: 11, color: '#7a8e97', fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' },
+  detailBox: { background: '#f7f9fb', border: '1px solid #eef1f4', borderRadius: 8, padding: '10px 12px', fontSize: 13, color: '#2d2d2d', whiteSpace: 'pre-wrap', lineHeight: 1.5 },
+  quickBtn: { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: '#fff', color: '#355574', border: '1.5px solid #dde8e4', borderRadius: 8, fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: 'pointer' },
+  responseItem: { background: '#f7f9fb', border: '1px solid #eef1f4', borderRadius: 8, padding: '10px 12px' },
+  responseHead: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
+  responseBy: { fontSize: 12, fontWeight: 700, color: '#355574' },
+  responseAt: { fontSize: 11, color: '#7a8e97' },
+  responseStatus: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999 },
+  responseText: { fontSize: 13, color: '#2d2d2d', lineHeight: 1.5, whiteSpace: 'pre-wrap' },
+  textarea: { width: '100%', padding: '10px 12px', border: '1.5px solid #dde8e4', borderRadius: 8, fontFamily: 'inherit', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box' },
+  formRow: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 10 },
+  formField: { display: 'flex', flexDirection: 'column', gap: 4 },
+  formLabel: { fontSize: 11, color: '#7a8e97', fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase' },
+  input: { padding: '8px 10px', border: '1.5px solid #dde8e4', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, outline: 'none' },
+  cancelBtn: { padding: '9px 14px', background: '#fff', color: '#7a8e97', border: '1.5px solid #dde8e4', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  saveBtn: { padding: '9px 16px', background: '#355574', color: '#fff', border: 'none', borderRadius: 8, fontFamily: 'inherit', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
 };
