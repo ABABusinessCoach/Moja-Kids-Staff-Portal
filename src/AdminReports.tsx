@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import emailjs from '@emailjs/browser';
-import { Download, Trash2, ArrowLeft, FileSpreadsheet, Filter, Lock, MessageSquareReply, X, CheckCircle2, Clock, Mail } from 'lucide-react';
-import { loadReports, toCSV, downloadCSV, clearReports, updateReportStatus, addResponse, STATUS_OPTIONS, ReportRow, ReportStatus } from './reports';
+import { Download, ArrowLeft, FileSpreadsheet, Filter, Lock, MessageSquareReply, X, CheckCircle2, Clock, Mail } from 'lucide-react';
+import { loadReports, toCSV, downloadCSV, updateReportStatus, addResponse, STATUS_OPTIONS, ReportRow, ReportStatus } from './reports';
 
 emailjs.init('bMB4o-cBjiQ1vODli');
 const SVC = 'service_y6hfvxk';
@@ -32,8 +32,18 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
   const [passError, setPassError] = useState(false);
   const [activeReport, setActiveReport] = useState<ReportRow | null>(null);
   const [adminName, setAdminName] = useState<string>(() => localStorage.getItem(ADMIN_NAME_KEY) || '');
+  const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { if (unlocked) setRows(loadReports()); }, [unlocked]);
+  useEffect(() => {
+    if (!unlocked) return;
+    setLoading(true);
+    setLoadError('');
+    loadReports()
+      .then(r => setRows(r))
+      .catch((err: Error) => setLoadError(err.message))
+      .finally(() => setLoading(false));
+  }, [unlocked]);
 
   function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -52,17 +62,21 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
     setUnlocked(false);
   }
 
-  function handleStatusChange(id: string, status: ReportStatus) {
-    const next = updateReportStatus(id, status);
-    setRows(next);
-    setActiveReport(prev => prev && prev.id === id ? next.find(r => r.id === id) ?? prev : prev);
+  async function handleStatusChange(id: string, status: ReportStatus) {
+    try {
+      const next = await updateReportStatus(id, status);
+      setRows(next);
+      setActiveReport(prev => prev && prev.id === id ? next.find(r => r.id === id) ?? prev : prev);
+    } catch (err) {
+      setLoadError((err as Error).message);
+    }
   }
 
-  function handleAddResponse(id: string, text: string, statusChange: ReportStatus | undefined, by: string) {
+  async function handleAddResponse(id: string, text: string, statusChange: ReportStatus | undefined, by: string) {
     const trimmedName = by.trim() || 'Admin';
     localStorage.setItem(ADMIN_NAME_KEY, trimmedName);
     setAdminName(trimmedName);
-    const next = addResponse(id, text, trimmedName, statusChange);
+    const next = await addResponse(id, text, trimmedName, statusChange);
     setRows(next);
     setActiveReport(next.find(r => r.id === id) ?? null);
   }
@@ -113,11 +127,7 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
     downloadCSV(`moja-${label}-${stamp}.csv`, toCSV(list));
   }
 
-  function handleClear() {
-    if (!confirm('Delete all locally-saved reports? This cannot be undone.')) return;
-    clearReports();
-    setRows([]);
-  }
+
 
   if (!unlocked) {
     return (
@@ -198,13 +208,12 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
         <button style={styles.exportBtn} onClick={() => handleExport('Heads Up')} disabled={counts.headsup === 0}>
           <Download size={15} /> Heads Up spreadsheet
         </button>
-        <button style={styles.clearBtn} onClick={handleClear} disabled={rows.length === 0}>
-          <Trash2 size={14} /> Clear all
-        </button>
+
       </div>
 
+      {loadError && <div style={styles.errorBanner}>Error loading reports: {loadError}</div>}
       <div style={styles.note}>
-        Reports are saved on this device. Open this page on the device where staff submit forms to compile the spreadsheet.
+        Reports are stored in a shared database. All admin sessions see the same submissions.
       </div>
 
       <div style={styles.tableWrap}>
@@ -225,11 +234,15 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={11} style={styles.empty}>Loading reports...</td>
+              </tr>
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={11} style={styles.empty}>
                   {rows.length === 0
-                    ? 'No reports yet. Submissions from this device will appear here automatically.'
+                    ? 'No reports yet. Submissions will appear here automatically.'
                     : 'No reports match the current filter.'}
                 </td>
               </tr>
@@ -278,7 +291,7 @@ function ResponseModal({
   report: ReportRow;
   defaultName: string;
   onClose: () => void;
-  onSubmit: (text: string, statusChange: ReportStatus | undefined, by: string) => void;
+  onSubmit: (text: string, statusChange: ReportStatus | undefined, by: string) => Promise<void>;
   onStatusChange: (s: ReportStatus) => void;
 }) {
   const [text, setText] = useState('');
@@ -301,19 +314,97 @@ function ResponseModal({
     setTimeout(() => setSaved(false), 700);
   }
 
-  function quick(msg: string, status?: ReportStatus) {
+  const [sending, setSending] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState('');
+
+  async function sendResponseEmail(responseText: string, statusLabel: string, closeOnDone: boolean) {
+    const requestorEmail = report.staffEmail.trim();
+    if (!requestorEmail) {
+      if (closeOnDone) flashSavedThenClose();
+      else flashSaved();
+      return;
+    }
+    setSending(true);
+    setNotifyMsg('');
+    const submittedDate = new Date(report.createdAt);
+    const formattedDate = isNaN(submittedDate.getTime())
+      ? report.createdAt
+      : submittedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+    const originalSummary = report.submissionType.startsWith('Moja Moment')
+      ? report.momentText
+      : report.headsupText;
+
+    const updateBody = [
+      `Hi ${report.staffName?.split(' ')[0] || 'there'},`,
+      '',
+      `There is an update on your ${report.submissionType} submission from ${formattedDate}.`,
+      '',
+      '── Admin Response ──',
+      responseText,
+      '',
+      `Status: ${statusLabel}`,
+      '',
+      '── Original Submission Details ──',
+      report.category ? `Category: ${report.category}` : '',
+      report.impact ? `Impact: ${report.impact}` : '',
+      report.urgency ? `Urgency: ${report.urgency}` : '',
+      report.followup ? `Follow-up: ${report.followup}` : '',
+      report.involvedStaff ? `Staff involved: ${report.involvedStaff}` : '',
+      report.involvedClient ? `Client involved: ${report.involvedClient}` : '',
+      originalSummary ? `\nDescription:\n${originalSummary}` : '',
+      report.improvement ? `\nSuggested improvement:\n${report.improvement}` : '',
+      '',
+      '──',
+      'This is an automated notification from Moja Behavioral Services.',
+      'If you have questions, please reply to hello@mojakids.com.',
+    ].filter(line => line !== '').join('\n');
+
+    const emailParams = {
+      to_email: requestorEmail,
+      reply_to: 'hello@mojakids.com',
+      email_subject: `Update: Your ${report.submissionType} submission — ${statusLabel}`,
+      submission_type: `Update: ${report.submissionType}`,
+      staff_name: report.staffName || 'there',
+      headsup_text: updateBody,
+      improvement: '—',
+      urgency: report.urgency || '—',
+      followup: report.followup || '—',
+      category: report.category || '—',
+      impact: report.impact || '—',
+      involved_staff: report.involvedStaff || '—',
+      involved_client: report.involvedClient || '—',
+      moment_client: report.momentClient || '—',
+      moment_staff: report.momentStaff || '—',
+      moment_text: report.momentText || '—',
+      photo_name: report.photoName || 'No photo',
+      photo_data: '',
+    };
     try {
-      onSubmit(msg, status, by);
+      await emailjs.send(SVC, TPL, emailParams);
+      setNotifyMsg('Update sent to ' + requestorEmail);
+    } catch (err) {
+      const detail = (err as { text?: string; message?: string })?.text
+        || (err as { message?: string })?.message
+        || 'Unknown error';
+      setNotifyMsg('Email failed: ' + detail + '. Response was still saved.');
+    } finally {
+      setSending(false);
+      if (closeOnDone) flashSavedThenClose();
+      else flashSaved();
+    }
+  }
+
+  async function quick(msg: string, status?: ReportStatus) {
+    try {
+      await onSubmit(msg, status, by);
       setText('');
       setSaveError('');
-      flashSaved();
+      await sendResponseEmail(msg, status ? `Status updated to: ${status}` : 'Status unchanged', false);
     } catch (err) {
       setSaveError((err as Error).message || 'Could not save. Please try again.');
     }
   }
-
-  const [sending, setSending] = useState(false);
-  const [notifyMsg, setNotifyMsg] = useState('');
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -321,44 +412,12 @@ function ResponseModal({
     const statusChanged = changeStatus && newStatus !== report.status;
     if (!trimmed && !statusChanged) return;
     try {
-      onSubmit(trimmed || `Status updated to ${newStatus}.`, statusChanged ? newStatus : undefined, by);
+      const responseText = trimmed || `Status updated to ${newStatus}.`;
+      await onSubmit(responseText, statusChanged ? newStatus : undefined, by);
       setText('');
       setSaveError('');
-
-      if (report.staffEmail) {
-        setSending(true);
-        setNotifyMsg('');
-        const statusLine = statusChanged ? `Status updated to: ${newStatus}` : '';
-        const emailParams = {
-          to_email: report.staffEmail,
-          submission_type: report.submissionType,
-          staff_name: report.staffName || 'there',
-          headsup_text: trimmed || `Status updated to ${newStatus}.`,
-          improvement: statusLine,
-          urgency: report.urgency || '—',
-          followup: report.followup || '—',
-          category: report.category || '—',
-          impact: report.impact || '—',
-          involved_staff: report.involvedStaff || '—',
-          involved_client: report.involvedClient || '—',
-          moment_client: report.momentClient || '—',
-          moment_staff: report.momentStaff || '—',
-          moment_text: report.momentText || '—',
-          photo_name: report.photoName || 'No photo',
-          photo_data: '',
-        };
-        try {
-          await emailjs.send(SVC, TPL, emailParams);
-          setNotifyMsg('Notification sent to ' + report.staffEmail);
-        } catch {
-          setNotifyMsg('Could not send notification email. Response was still saved.');
-        } finally {
-          setSending(false);
-          flashSavedThenClose();
-        }
-      } else {
-        flashSavedThenClose();
-      }
+      const statusLabel = statusChanged ? `Status updated to: ${newStatus}` : 'Status unchanged';
+      await sendResponseEmail(responseText, statusLabel, true);
     } catch (err) {
       setSaveError((err as Error).message || 'Could not save. Please try again.');
     }
@@ -412,13 +471,13 @@ function ResponseModal({
           <div style={styles.modalSection}>
             <div style={styles.modalSectionLabel}>Quick actions</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" style={styles.quickBtn} onClick={() => quick('Received. We have seen this heads-up and will look into it.', 'Acknowledged')}>
+              <button type="button" style={{ ...styles.quickBtn, opacity: sending ? 0.5 : 1 }} disabled={sending} onClick={() => quick('Received. We have seen this heads-up and will look into it.', 'Acknowledged')}>
                 <Clock size={13} /> Mark received
               </button>
-              <button type="button" style={styles.quickBtn} onClick={() => quick('Action taken — issue has been addressed.', 'Completed')}>
+              <button type="button" style={{ ...styles.quickBtn, opacity: sending ? 0.5 : 1 }} disabled={sending} onClick={() => quick('Action taken — issue has been addressed.', 'Completed')}>
                 <CheckCircle2 size={13} /> Action taken
               </button>
-              <button type="button" style={styles.quickBtn} onClick={() => quick('Following up — more information needed from the submitter.', 'Awaiting Response')}>
+              <button type="button" style={{ ...styles.quickBtn, opacity: sending ? 0.5 : 1 }} disabled={sending} onClick={() => quick('Following up — more information needed from the submitter.', 'Awaiting Response')}>
                 <MessageSquareReply size={13} /> Awaiting response
               </button>
             </div>
@@ -485,7 +544,7 @@ function ResponseModal({
               </label>
             </div>
             {saveError && <div style={styles.errorBanner}>{saveError}</div>}
-            {saved && <div style={styles.savedBanner}><CheckCircle2 size={14} /> Saved to this device</div>}
+            {saved && <div style={styles.savedBanner}><CheckCircle2 size={14} /> Response saved</div>}
             {sending && <div style={{ ...styles.savedBanner, background: '#eef4f8', color: '#355574' }}><Mail size={14} /> Sending notification...</div>}
             {notifyMsg && <div style={{ ...styles.savedBanner, background: notifyMsg.startsWith('Could not') ? '#fce9df' : '#dff5e8', color: notifyMsg.startsWith('Could not') ? '#c0392b' : '#1e7a3d' }}><Mail size={14} /> {notifyMsg}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>

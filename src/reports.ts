@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js';
+
 export type ReportStatus = 'New' | 'Acknowledged' | 'In Progress' | 'Awaiting Response' | 'Completed';
 export const STATUS_OPTIONS: ReportStatus[] = ['New', 'Acknowledged', 'In Progress', 'Awaiting Response', 'Completed'];
 
@@ -32,95 +34,174 @@ export interface ReportRow {
   responses: AdminResponse[];
 }
 
-const KEY = 'moja_reports_v1';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-function normalize(entry: Partial<ReportRow>): ReportRow {
-  const validStatus = STATUS_OPTIONS.includes(entry.status as ReportStatus)
-    ? (entry.status as ReportStatus)
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+}
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+interface DbReport {
+  id: string;
+  created_at: string;
+  submission_type: string;
+  staff_name: string;
+  staff_email: string;
+  category: string;
+  impact: string;
+  involved_staff: string;
+  involved_client: string;
+  headsup_text: string;
+  improvement: string;
+  urgency: string;
+  followup: string;
+  moment_client: string;
+  moment_staff: string;
+  moment_text: string;
+  photo_name: string;
+  status: string;
+  status_updated_at: string;
+}
+
+interface DbResponse {
+  id: string;
+  report_id: string;
+  created_at: string;
+  author_name: string;
+  response_text: string;
+  status_change: string | null;
+}
+
+function toReportRow(r: DbReport, responses: DbResponse[]): ReportRow {
+  const validStatus = STATUS_OPTIONS.includes(r.status as ReportStatus)
+    ? (r.status as ReportStatus)
     : 'New';
   return {
-    id: entry.id ?? crypto.randomUUID(),
-    createdAt: entry.createdAt ?? new Date().toISOString(),
-    submissionType: entry.submissionType ?? '',
-    staffName: entry.staffName ?? '',
-    staffEmail: entry.staffEmail ?? '',
-    category: entry.category ?? '',
-    impact: entry.impact ?? '',
-    involvedStaff: entry.involvedStaff ?? '',
-    involvedClient: entry.involvedClient ?? '',
-    headsupText: entry.headsupText ?? '',
-    improvement: entry.improvement ?? '',
-    urgency: entry.urgency ?? '',
-    followup: entry.followup ?? '',
-    momentClient: entry.momentClient ?? '',
-    momentStaff: entry.momentStaff ?? '',
-    momentText: entry.momentText ?? '',
-    photoName: entry.photoName ?? '',
+    id: r.id,
+    createdAt: r.created_at,
+    submissionType: r.submission_type,
+    staffName: r.staff_name,
+    staffEmail: r.staff_email,
+    category: r.category,
+    impact: r.impact,
+    involvedStaff: r.involved_staff,
+    involvedClient: r.involved_client,
+    headsupText: r.headsup_text,
+    improvement: r.improvement,
+    urgency: r.urgency,
+    followup: r.followup,
+    momentClient: r.moment_client,
+    momentStaff: r.moment_staff,
+    momentText: r.moment_text,
+    photoName: r.photo_name,
     status: validStatus,
-    statusUpdatedAt: entry.statusUpdatedAt ?? entry.createdAt ?? new Date().toISOString(),
-    responses: Array.isArray(entry.responses) ? entry.responses : [],
+    statusUpdatedAt: r.status_updated_at,
+    responses: responses
+      .filter(resp => resp.report_id === r.id)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .map(resp => ({
+        id: resp.id,
+        at: resp.created_at,
+        by: resp.author_name,
+        text: resp.response_text,
+        statusChange: (STATUS_OPTIONS.includes(resp.status_change as ReportStatus)
+          ? (resp.status_change as ReportStatus)
+          : undefined),
+      })),
   };
 }
 
-export function addResponse(id: string, text: string, by: string, statusChange?: ReportStatus): ReportRow[] {
-  const list = loadReports();
-  const now = new Date().toISOString();
-  const response: AdminResponse = {
-    id: crypto.randomUUID(),
-    at: now,
-    by: by.trim() || 'Admin',
-    text: text.trim(),
-    statusChange,
+export async function loadReports(): Promise<ReportRow[]> {
+  const { data: reports, error: rErr } = await supabase
+    .from('reports')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (rErr) throw new Error(rErr.message);
+  if (!reports || reports.length === 0) return [];
+
+  const { data: responses, error: respErr } = await supabase
+    .from('report_responses')
+    .select('*')
+    .in('report_id', reports.map(r => r.id));
+  if (respErr) throw new Error(respErr.message);
+
+  return reports.map(r => toReportRow(r as DbReport, (responses ?? []) as DbResponse[]));
+}
+
+export async function saveReport(
+  row: Omit<ReportRow, 'id' | 'createdAt' | 'status' | 'statusUpdatedAt' | 'responses'>
+): Promise<ReportRow> {
+  const insert = {
+    submission_type: row.submissionType,
+    staff_name: row.staffName,
+    staff_email: row.staffEmail,
+    category: row.category,
+    impact: row.impact,
+    involved_staff: row.involvedStaff,
+    involved_client: row.involvedClient,
+    headsup_text: row.headsupText,
+    improvement: row.improvement,
+    urgency: row.urgency,
+    followup: row.followup,
+    moment_client: row.momentClient,
+    moment_staff: row.momentStaff,
+    moment_text: row.momentText,
+    photo_name: row.photoName,
+    status: 'New',
   };
-  const next = list.map(r => {
-    if (r.id !== id) return r;
-    return {
-      ...r,
-      responses: [...r.responses, response],
-      status: statusChange ?? r.status,
-      statusUpdatedAt: statusChange ? now : r.statusUpdatedAt,
-    };
-  });
-  persistReports(next);
-  return next;
+  const { data, error } = await supabase
+    .from('reports')
+    .insert(insert)
+    .select('*')
+    .single();
+  if (error) throw new Error(error.message);
+  return toReportRow(data as DbReport, []);
 }
 
-function persistReports(list: ReportRow[]) {
-  localStorage.setItem(KEY, JSON.stringify(list));
-  const check = localStorage.getItem(KEY);
-  if (!check) throw new Error('Save failed: storage returned empty after write.');
+export async function updateReportStatus(id: string, status: ReportStatus): Promise<ReportRow[]> {
+  const { error } = await supabase
+    .from('reports')
+    .update({ status, status_updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+  return loadReports();
 }
 
-export function loadReports(): ReportRow[] {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(normalize);
-  } catch {
-    return [];
+export async function addResponse(
+  id: string,
+  text: string,
+  by: string,
+  statusChange?: ReportStatus
+): Promise<ReportRow[]> {
+  const insert = {
+    report_id: id,
+    author_name: by.trim() || 'Admin',
+    response_text: text.trim(),
+    status_change: statusChange ?? null,
+  };
+  const { error: insErr } = await supabase
+    .from('report_responses')
+    .insert(insert);
+  if (insErr) throw new Error(insErr.message);
+
+  if (statusChange) {
+    const { error: updErr } = await supabase
+      .from('reports')
+      .update({ status: statusChange, status_updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (updErr) throw new Error(updErr.message);
   }
+  return loadReports();
 }
 
-export function saveReport(row: Omit<ReportRow, 'id' | 'createdAt' | 'status' | 'statusUpdatedAt' | 'responses'>): ReportRow {
-  const list = loadReports();
-  const now = new Date().toISOString();
-  const entry: ReportRow = normalize({ ...row, id: crypto.randomUUID(), createdAt: now, status: 'New', statusUpdatedAt: now, responses: [] });
-  list.unshift(entry);
-  persistReports(list);
-  return entry;
-}
-
-export function updateReportStatus(id: string, status: ReportStatus): ReportRow[] {
-  const list = loadReports();
-  const next = list.map(r => r.id === id ? { ...r, status, statusUpdatedAt: new Date().toISOString() } : r);
-  persistReports(next);
-  return next;
-}
-
-export function clearReports() {
-  localStorage.removeItem(KEY);
+export async function clearReports(): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+  if (error) throw new Error(error.message);
 }
 
 const COLUMNS: { key: keyof ReportRow; label: string }[] = [
