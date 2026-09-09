@@ -130,46 +130,38 @@ export async function loadReports(): Promise<ReportRow[]> {
   return reports.map(r => toReportRow(r as DbReport, (responses ?? []) as DbResponse[]));
 }
 
-function isNetworkError(err: unknown): boolean {
-  if (!err) return false;
-  const msg = typeof err === 'object' && err !== null && 'message' in err
-    ? String((err as { message: unknown }).message)
-    : String(err);
-  return msg.includes('Failed to fetch') ||
-    msg.includes('NetworkError') ||
-    msg.includes('Load failed') ||
-    msg.includes('network');
-}
-
-async function insertWithRetry(
-  table: string,
-  row: Record<string, unknown>,
-  retries = 2,
-): Promise<void> {
-  let lastError: unknown;
-  for (let attempt = 0; attempt <= retries; attempt++) {
+async function restInsert(table: string, row: Record<string, unknown>): Promise<void> {
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const { error } = await supabase.from(table).insert(row);
-      if (!error) return;
-      lastError = error;
-      if (!isNetworkError(error) || attempt === retries) {
-        throw new Error(error.message);
+      const res = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify(row),
+      });
+      if (res.ok) return;
+      const body = await res.text().catch(() => '');
+      if (attempt === maxAttempts) {
+        throw new Error(`Save failed (${res.status}): ${body}`);
       }
-    } catch (thrown: unknown) {
-      lastError = thrown;
-      if (!isNetworkError(thrown) || attempt === retries) {
-        throw thrown instanceof Error ? thrown : new Error(String(thrown));
+    } catch (err) {
+      if (attempt === maxAttempts) {
+        throw err instanceof Error ? err : new Error(String(err));
       }
     }
-    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    await new Promise(r => setTimeout(r, 1000 * attempt));
   }
-  throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
 export async function saveReport(
   row: Omit<ReportRow, 'id' | 'createdAt' | 'status' | 'statusUpdatedAt' | 'responses'>
 ): Promise<void> {
-  await insertWithRetry('reports', {
+  await restInsert('reports', {
     submission_type: row.submissionType,
     staff_name: row.staffName,
     staff_email: row.staffEmail,
