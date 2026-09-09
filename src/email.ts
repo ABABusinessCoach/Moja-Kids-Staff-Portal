@@ -103,17 +103,21 @@ function buildResponseHtml(p: {
 
 async function callEdgeFunction(to: string, subject: string, html: string, replyTo?: string): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ to, subject, html, replyTo }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error || `Email failed (${res.status})`);
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ to, subject, html, replyTo }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.warn('Email send failed:', (body as { error?: string }).error || res.status);
+    }
+  } catch (err) {
+    console.warn('Email send error:', err);
   }
 }
 

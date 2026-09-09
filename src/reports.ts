@@ -130,10 +130,46 @@ export async function loadReports(): Promise<ReportRow[]> {
   return reports.map(r => toReportRow(r as DbReport, (responses ?? []) as DbResponse[]));
 }
 
+function isNetworkError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = typeof err === 'object' && err !== null && 'message' in err
+    ? String((err as { message: unknown }).message)
+    : String(err);
+  return msg.includes('Failed to fetch') ||
+    msg.includes('NetworkError') ||
+    msg.includes('Load failed') ||
+    msg.includes('network');
+}
+
+async function insertWithRetry(
+  table: string,
+  row: Record<string, unknown>,
+  retries = 2,
+): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const { error } = await supabase.from(table).insert(row);
+      if (!error) return;
+      lastError = error;
+      if (!isNetworkError(error) || attempt === retries) {
+        throw new Error(error.message);
+      }
+    } catch (thrown: unknown) {
+      lastError = thrown;
+      if (!isNetworkError(thrown) || attempt === retries) {
+        throw thrown instanceof Error ? thrown : new Error(String(thrown));
+      }
+    }
+    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 export async function saveReport(
   row: Omit<ReportRow, 'id' | 'createdAt' | 'status' | 'statusUpdatedAt' | 'responses'>
 ): Promise<void> {
-  const insert = {
+  await insertWithRetry('reports', {
     submission_type: row.submissionType,
     staff_name: row.staffName,
     staff_email: row.staffEmail,
@@ -150,11 +186,7 @@ export async function saveReport(
     moment_text: row.momentText,
     photo_name: row.photoName,
     status: 'New',
-  };
-  const { error } = await supabase
-    .from('reports')
-    .insert(insert);
-  if (error) throw new Error(error.message);
+  });
 }
 
 export async function updateReportStatus(id: string, status: ReportStatus): Promise<ReportRow[]> {
