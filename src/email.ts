@@ -1,10 +1,6 @@
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-const ADMIN_EMAIL = 'hello@mojakids.com';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseConfig';
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY — email notifications disabled.');
-}
+const ADMIN_EMAIL = 'hello@mojakids.com';
 
 function escapeHtml(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
@@ -102,7 +98,7 @@ function buildResponseHtml(p: {
 }
 
 async function callEdgeFunction(to: string, subject: string, html: string, replyTo?: string): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+
   try {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
       method: 'POST',

@@ -1,0 +1,2 @@
+export const SUPABASE_URL = 'https://clnougahjippfvxbllkq.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsbm91Z2FoamlwcGZ2eGJsbGtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4ODk3MzksImV4cCI6MjEwNDQ2NTczOX0.AsfqW7_Qt4TKVcq_9sJgtG9hMszCzbMCOsWER40PZfA';

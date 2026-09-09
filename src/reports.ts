@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseConfig';
 
 export type ReportStatus = 'New' | 'Acknowledged' | 'In Progress' | 'Awaiting Response' | 'Completed';
 export const STATUS_OPTIONS: ReportStatus[] = ['New', 'Acknowledged', 'In Progress', 'Awaiting Response', 'Completed'];
@@ -34,12 +35,8 @@ export interface ReportRow {
   responses: AdminResponse[];
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
-}
+const supabaseUrl = SUPABASE_URL;
+const supabaseAnonKey = SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -131,10 +128,14 @@ export async function loadReports(): Promise<ReportRow[]> {
 }
 
 async function restInsert(table: string, row: Record<string, unknown>): Promise<void> {
+  const url = `${supabaseUrl}/rest/v1/${table}`;
   const maxAttempts = 3;
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const res = await fetch(`${supabaseUrl}/rest/v1/${table}`, {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'apikey': supabaseAnonKey,
@@ -143,18 +144,16 @@ async function restInsert(table: string, row: Record<string, unknown>): Promise<
           'Prefer': 'return=minimal',
         },
         body: JSON.stringify(row),
+        signal: controller.signal,
       });
+      clearTimeout(tid);
       if (res.ok) return;
       const body = await res.text().catch(() => '');
-      if (attempt === maxAttempts) {
-        throw new Error(`Save failed (${res.status}): ${body}`);
-      }
+      if (attempt === maxAttempts) throw new Error(`Save failed (${res.status}): ${body}`);
     } catch (err) {
-      if (attempt === maxAttempts) {
-        throw err instanceof Error ? err : new Error(String(err));
-      }
+      if (attempt === maxAttempts) throw err instanceof Error ? err : new Error(String(err));
     }
-    await new Promise(r => setTimeout(r, 1000 * attempt));
+    await new Promise(r => setTimeout(r, 1500 * attempt));
   }
 }
 
