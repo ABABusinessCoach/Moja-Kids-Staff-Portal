@@ -132,7 +132,7 @@ export async function loadReports(): Promise<ReportRow[]> {
 
 export async function saveReport(
   row: Omit<ReportRow, 'id' | 'createdAt' | 'status' | 'statusUpdatedAt' | 'responses'>
-): Promise<ReportRow> {
+): Promise<void> {
   const insert = {
     submission_type: row.submissionType,
     staff_name: row.staffName,
@@ -151,13 +151,10 @@ export async function saveReport(
     photo_name: row.photoName,
     status: 'New',
   };
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('reports')
-    .insert(insert)
-    .select('*')
-    .single();
+    .insert(insert);
   if (error) throw new Error(error.message);
-  return toReportRow(data as DbReport, []);
 }
 
 export async function updateReportStatus(id: string, status: ReportStatus): Promise<ReportRow[]> {

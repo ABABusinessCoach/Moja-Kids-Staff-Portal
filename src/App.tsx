@@ -197,7 +197,8 @@ export default function App() {
       sendSubmissionEmail({ submissionType: 'Heads Up', staffName, staffEmail, category: hu.category, impact: hu.impact, involvedStaff: hu.staff || '', involvedClient: hu.client || '', description: hu.text, improvement: hu.improvement || '', urgency: uLabel(hu.urgency), followup: hu.followup === 'yes' ? 'Yes — follow up requested' : 'No follow-up needed', photoName: hu.photoName || '' });
       setThanksTitle('Heads Up submitted!'); setThanksMsg("Sent to hello@mojakids.com — it'll be routed to the right person."); show('thanks');
     } catch (err: unknown) {
-      setHuSubmitError('Something went wrong while saving. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setHuSubmitError(`Something went wrong while saving: ${msg}`);
     } finally { setHuSubmitting(false); }
   }
 
@@ -212,7 +213,8 @@ export default function App() {
       setThanksMsg('Sent to hello@mojakids.com. Thank you for celebrating your team.');
       show('thanks');
     } catch (err: unknown) {
-      setMmSubmitError('Something went wrong while saving. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setMmSubmitError(`Something went wrong while saving: ${msg}`);
     } finally { setMmSubmitting(false); }
   }
 
@@ -241,7 +243,8 @@ export default function App() {
       setThanksMsg('Sent to hello@mojakids.com. The team will look into it right away.');
       show('thanks');
     } catch (err: unknown) {
-      setTechSubmitError('Something went wrong while saving. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setTechSubmitError(`Something went wrong while saving: ${msg}`);
     } finally { setTechSubmitting(false); }
   }
 
@@ -256,7 +259,8 @@ export default function App() {
       sendSubmissionEmail({ submissionType: 'SOS — URGENT HELP NEEDED', staffName: senderName, staffEmail, category: 'EMERGENCY', impact: 'Safety', involvedStaff: senderName, description: `LOCATION: ${sos.location.trim()}${sos.note.trim() ? `\n\nADDITIONAL INFO: ${sos.note.trim()}` : ''}`, urgency: 'RED — IMMEDIATE HELP NEEDED', followup: 'Yes — follow up immediately' });
       setSosSent(true);
     } catch (err: unknown) {
-      setSosSendError('Something went wrong while saving. Please try again.');
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setSosSendError(`Something went wrong while saving: ${msg}`);
     } finally {
       setSosSending(false);
     }
