@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Download, ArrowLeft, FileSpreadsheet, Filter, Lock, MessageSquareReply, X, CheckCircle2, Clock, Mail } from 'lucide-react';
 import { loadReports, toCSV, downloadCSV, updateReportStatus, addResponse, STATUS_OPTIONS, ReportRow, ReportStatus } from './reports';
-import { sendResponseEmail as sendResponseEmailApi } from './email';
+import { sendResponseEmail as sendResponseEmailApi, sendStatusChangeEmail } from './email';
 
 type TypeFilter = 'all' | 'Heads Up' | 'Moja Moment' | 'Tech Issue' | 'SOS';
 type StatusFilter = 'all' | ReportStatus;
@@ -62,7 +62,17 @@ export default function AdminReports({ onBack }: { onBack: () => void }) {
     try {
       const next = await updateReportStatus(id, status);
       setRows(next);
-      setActiveReport(prev => prev && prev.id === id ? next.find(r => r.id === id) ?? prev : prev);
+      const updated = next.find(r => r.id === id);
+      setActiveReport(prev => prev && prev.id === id ? updated ?? prev : prev);
+      if (updated?.staffEmail) {
+        sendStatusChangeEmail({
+          staffEmail: updated.staffEmail,
+          staffName: updated.staffName || 'there',
+          submissionType: updated.submissionType,
+          submittedDate: new Date(updated.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }),
+          newStatus: status,
+        }).catch(() => {});
+      }
     } catch (err) {
       setLoadError((err as Error).message);
     }
